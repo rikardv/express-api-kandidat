@@ -39,25 +39,11 @@ app.get('/test/graph', (req, res) => {
   let result = [];
 
   connection.query(
-    'SELECT COUNT(BETYGSVARDE) AS BETYG_4 FROM IO_STUDIERESULTAT WHERE UTBILDNING_KOD="TNG033" AND BETYGSVARDE="4"',
+    'SELECT BETYGSVARDE AS betyg, COUNT(BETYGSVARDE) AS antal FROM io_studieresultat WHERE UTBILDNING_KOD="TNG033" GROUP BY BETYGSVARDE',
     (err, first, fields) => {
-      connection.query(
-        'SELECT COUNT(BETYGSVARDE) AS BETYG_3 FROM IO_STUDIERESULTAT WHERE UTBILDNING_KOD="TNG033" AND BETYGSVARDE="3"',
-        (err, second, fields) => {
-          result[0] = {
-            name: 'BETYG_4',
-            value: first[0].BETYG_4,
-          };
-
-          result[1] = {
-            name: 'BETYG_3',
-            value: second[0].BETYG_3,
-          };
-          res.status(200).send({
-            data: result,
-          });
-        }
-      );
+      res.status(200).send({
+        data: first,
+      });
     }
   );
 });
