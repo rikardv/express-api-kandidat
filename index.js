@@ -33,7 +33,7 @@ app.get('/test', (req, res) => {
   );
 });
 
-//Add an test endpoint to the api.
+//Add an graph test endpoint to the api.
 //res is incoming data, res is the data to be returned
 app.get('/test/graph', (req, res) => {
   let result = [];
