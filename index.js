@@ -51,7 +51,7 @@ app.get('/test/graph', (req, res) => {
 
           result[1] = {
             name: 'BETYG_3',
-            value: first[0].BETYG_3,
+            value: second[0].BETYG_3,
           };
           res.status(200).send({
             data: result,
