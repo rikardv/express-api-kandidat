@@ -3,7 +3,6 @@
  */
 
 const app = require('express')();
-const mysql = require('mysql');
 const utils = require('./utils');
 var cors = require('cors');
 const PORT = 8080;
@@ -15,18 +14,6 @@ app.listen(PORT, () =>
 /**
  * Alla API endpoints defineras nedan
  */
-
-// Test API endpoint för att hämta personnummer och lite annat
-app.get('/test', (req, res) => {
-  connection.query(
-    'SELECT PERSONNUMMER,FODELSEAR,EFTERNAMN,FORNAMN,UTBILDNING_SV FROM IO_STUDIERESULTAT LIMIT 1000',
-    (err, rows, fields) => {
-      res.status(200).send({
-        data: rows,
-      });
-    }
-  );
-});
 
 //Test API endpoint för att hämta fördelningen av betyg i en kurs
 app.get('/test/betyg', async (req, res) => {
