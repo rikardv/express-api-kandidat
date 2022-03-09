@@ -5,11 +5,13 @@
 const app = require('express')();
 const utils = require('./utils');
 var cors = require('cors');
+var logger = require('morgan');
 const PORT = 8080;
 app.use(cors());
 app.listen(PORT, () =>
   console.log(`Vårt api ligger och chillar på http://localhost:${PORT}`)
 );
+app.use(logger('dev'));
 
 /**
  * Alla API endpoints defineras nedan
