@@ -8,7 +8,6 @@ const utils = require('../setup/utils');
 module.exports = {
   getBetyg: async (req, res) => {
     let result = [];
-
     result = await utils.sqlQuery(
       'SELECT BETYGSVARDE AS betyg, COUNT(BETYGSVARDE) AS antal FROM io_studieresultat WHERE UTBILDNING_KOD="TNG033" GROUP BY BETYGSVARDE'
     );
