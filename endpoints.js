@@ -9,6 +9,8 @@ const handler = require('./handlers/handler');
 /* Testing endpoints */
 router.get('/test/betyg', handler.getBetyg);
 router.get('/test/avbrott', handler.getAvbrott);
-router.get('/test/kursutvarderingsbetyg', handler.getKursUtvarderingsBetyg);
+
+/*Utvärderingsbetyg för kurser endpoints */
+router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
 
 module.exports = router;

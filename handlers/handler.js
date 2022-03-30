@@ -1,9 +1,9 @@
 /**
- * Functions for handling request for testing purposes
+ * Functions for handling request
  * Calls sqlQuery function from utils and gets data from database
  */
 
-const utils = require("../setup/utils");
+const utils = require('../setup/utils');
 
 module.exports = {
   getBetyg: async (req, res) => {
@@ -29,17 +29,20 @@ module.exports = {
   },
 
   //Hämtar kuser med tillhörande år/termin. Summerar ihop kursutväerderingsbetygen och tar fram ett snittbetyg (SNITT_BETYG).
+  //Tar in antalet som parameter
   getKursUtvarderingsBetyg: async (req, res) => {
     let result = [];
+    let limit = req.query.limit;
     result = await utils.sqlQuery(
       //Quearyn har för tillfället en DESC LIMIT på 10
-      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM evaliuate ORDER BY UTBILDNING_KOD DESC LIMIT 10 '
+      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM evaliuate ORDER BY UTBILDNING_KOD' +
+        ` DESC LIMIT ${limit}`
     );
     tempRes = [];
     var kurs = new Object();
     kurs.name = result[0].UTBILDNING_KOD;
 
-    //Kass loop för att formatera daten till ReCharts.... 
+    //Kass loop för att formatera daten till ReCharts....
     result.forEach((element) => {
       //För första iterationen
       if (kurs.name != element.UTBILDNING_KOD) {
@@ -55,10 +58,8 @@ module.exports = {
     });
     tempRes.push(kurs);
     result = tempRes;
-    console.log("test för nu är det något lurt")
     res.status(200).send({
       data: result,
     });
-    
   },
 };
