@@ -31,13 +31,16 @@ module.exports = {
   getDagar: async (req, res) => {
     let result = [];
     let result2 = [];
+    let kurskod = req.query.kurskod;
 
     result = await utils.sqlQuery(
-      'SELECT PERSONNUMMER as pnr, UTBILDNING_KOD as kurskod, GILTIGSOMSLUTBETYG as failOrPass, MAX(EXAMINATIONSDATUM) as tentaDatum, UTBILDNINGSTILLFALLE_STARTDATUM as kursStart FROM `io_studieresultat` WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM="2019-08-19" AND YTTERSTA_KURSPAKETERING_SV="Civilingenjörsprogram i medieteknik" GROUP BY pnr, kurskod, failOrPass, kursStart'
+      'SELECT PERSONNUMMER as pnr, UTBILDNING_KOD as kurskod, GILTIGSOMSLUTBETYG as failOrPass, MAX(EXAMINATIONSDATUM) as tentaDatum, UTBILDNINGSTILLFALLE_STARTDATUM as kursStart FROM `io_studieresultat` WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM="2019-08-19" AND YTTERSTA_KURSPAKETERING_SV="Civilingenjörsprogram i medieteknik" AND UTBILDNING_KOD =' +
+        ` '${kurskod}' GROUP BY pnr, kurskod, failOrPass, kursStart`
     );
 
     result2 = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT PERSONNUMMER) as pnr, UTBILDNING_KOD as kurskod FROM `io_registrering` WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM="2019-08-19" AND YTTERSTA_KURSPAKETERING_SV="Civilingenjörsprogram i medieteknik" GROUP BY kurskod'
+      'SELECT COUNT(DISTINCT PERSONNUMMER) as pnr, UTBILDNING_KOD as kurskod FROM `io_registrering` WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM="2019-08-19" AND YTTERSTA_KURSPAKETERING_SV="Civilingenjörsprogram i medieteknik" AND UTBILDNING_KOD = ' +
+        ` '${kurskod}' GROUP BY kurskod`
     );
 
     res.status(200).send({
