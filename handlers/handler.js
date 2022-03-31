@@ -3,7 +3,7 @@
  * Calls sqlQuery function from utils and gets data from database
  */
 
-const utils = require("../setup/utils");
+const utils = require('../setup/utils');
 
 module.exports = {
   getBetyg: async (req, res) => {
@@ -30,13 +30,19 @@ module.exports = {
 
   getDagar: async (req, res) => {
     let result = [];
+    let result2 = [];
 
     result = await utils.sqlQuery(
-      'SELECT DISTINCT UTBILDNING_KOD as kurskod, UTBILDNINGSTILLFALLE_STARTDATUM as startdatum, MAX(EXAMINATIONSDATUM) as slutdatum FROM `io_studieresultat` WHERE YTTERSTA_KURSPAKETERING_SV = "Civilingenjörsprogram i medieteknik" AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM="2019-08-19" AND PERSONNUMMER="200004157637" AND BETYGSVARDE != "U" GROUP BY kurskod, startdatum'
+      'SELECT PERSONNUMMER as pnr, UTBILDNING_KOD as kurskod, GILTIGSOMSLUTBETYG as failOrPass, MAX(EXAMINATIONSDATUM) as tentaDatum, UTBILDNINGSTILLFALLE_STARTDATUM as kursStart FROM `io_studieresultat` WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM="2019-08-19" AND YTTERSTA_KURSPAKETERING_SV="Civilingenjörsprogram i medieteknik" GROUP BY pnr, kurskod, failOrPass, kursStart'
+    );
+
+    result2 = await utils.sqlQuery(
+      'SELECT COUNT(DISTINCT PERSONNUMMER) as pnr, UTBILDNING_KOD as kurskod FROM `io_registrering` WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM="2019-08-19" AND YTTERSTA_KURSPAKETERING_SV="Civilingenjörsprogram i medieteknik" GROUP BY kurskod'
     );
 
     res.status(200).send({
       data: result,
+      data2: result2,
     });
   },
 };
