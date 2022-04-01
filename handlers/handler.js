@@ -62,4 +62,39 @@ module.exports = {
       data: result,
     });
   },
+  
+  getKurserFranProgram: async (req, res) => {
+    //Hämtar alla kurser som tillhör parametern
+    //Paramemtern hämtas genom att läsa av URL Tex: http://localhost:8080/getKurserFranProgram?kurskoden=6CDDD, Där parametern paseras på vad som skrivs efter "?"
+    
+    //RIKARD! Hojta till om du vill ha det på ett annat sätt :P 
+
+
+    let kursKod = req.query.kurskoden;
+    var param = [kursKod];
+    console.log(kursKod);
+    let result = [];
+
+    quary = 'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?'
+
+    result = await utils.sqlQuery(quary,kursKod
+      
+    );
+    res.status(200).send({
+      data: result,
+    });
+  },
+
+  getProgramKoder: async (req, res) => {
+    //Hämtar alla programkoder i DT
+    let result = [];
+
+    result = await utils.sqlQuery(
+      'SELECT DISTINCT `YTTERSTA_KURSPAKETERING_KOD`,`YTTERSTA_KURSPAKETERING_SV`FROM io_studieresultat'
+    );
+    res.status(200).send({
+      data: result,
+    });
+  },
+
 };
