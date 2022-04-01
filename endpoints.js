@@ -12,7 +12,9 @@ router.get('/test/avbrott', handler.getAvbrott);
 
 /*Utvärderingsbetyg för kurser endpoints */
 router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
-router.get('/KurserFranProgram', handler.getKurserFranProgram);
-router.get('/programKoder', handler.getProgramKoder);
+
+/*Program endpoints */
+router.get('/program/kurser', handler.getKurserFranProgram);
+router.get('/program/koder', handler.getProgramKoder);
 
 module.exports = router;
