@@ -31,7 +31,7 @@ module.exports = {
   getKursRegistreringsTillfallen: async (req, res) => {
     let kurskod = req.query.kurskod;
     let tillfallen = await utils.sqlQuery(
-      'SELECT DISTINCT(YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM) as start_datum FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM',
+      'SELECT DISTINCT(STUDIEPERIOD_STARTDATUM) as start_datum FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ? ORDER BY STUDIEPERIOD_STARTDATUM',
       kurskod
     );
 
@@ -48,26 +48,31 @@ module.exports = {
 
     //Returnerar ett tal
     let registrerade_personer = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT(PERSONNUMMER)) as antal FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND UTBILDNING_KOD = ?',
+      'SELECT COUNT(DISTINCT(PERSONNUMMER)) as antal FROM IO_REGISTRERING WHERE STUDIEPERIOD_STARTDATUM = ? AND UTBILDNING_KOD = ?',
       [startdatum, kurskod]
     );
 
     //Array med exam datum och antalet godkända. Endast TEN1, fixas sen
     let godkanda_personer = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT(PERSONNUMMER)) as antal_personer,EXAMINATIONSDATUM as examinations_datum FROM IO_STUDIERESULTAT WHERE UTBILDNING_KOD = ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND GILTIGSOMSLUTBETYG = 1 AND MODUL_KOD = "TEN1" GROUP BY EXAMINATIONSDATUM',
+      'SELECT COUNT(DISTINCT(PERSONNUMMER)) as antal_personer,EXAMINATIONSDATUM as examinations_datum FROM IO_STUDIERESULTAT WHERE UTBILDNING_KOD = ? AND UTBILDNINGSTILLFALLE_STARTDATUM  = ? AND GILTIGSOMSLUTBETYG = 1 AND MODUL_KOD = "TEN1" GROUP BY EXAMINATIONSDATUM',
       [kurskod, startdatum]
     );
 
     var res_arr = [];
+    res_arr[0] = {
+      andel_procent: 0,
+      antal_dagar: 0,
+      start_datum: startdatum,
+    };
     //Loopar igenom och ändrar till antalet dagar och procent
     for (var i = 0; i < godkanda_personer.length; i++) {
-      res_arr[i] = {
+      res_arr[i + 1] = {
         ...godkanda_personer[i],
         andel_procent:
           (godkanda_personer[i].antal_personer /
             registrerade_personer[0].antal) *
             100 +
-          (i > 0 ? res_arr[i - 1].andel_procent : 0),
+          (i > 0 ? res_arr[i].andel_procent : 0),
         antal_dagar: daysBetweenDates(
           startdatum,
           godkanda_personer[i].examinations_datum
