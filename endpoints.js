@@ -12,5 +12,6 @@ router.get('/test/avbrott', handler.getAvbrott);
 
 /*Kursavlut endpoints*/
 router.get('/kurser/avslut', handler.getDagar);
+router.get('/kurser/registrering', handler.getKursRegistreringsTillfallen);
 
 module.exports = router;
