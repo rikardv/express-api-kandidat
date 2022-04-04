@@ -19,10 +19,14 @@ module.exports = {
 
   getAvbrott: async (req, res) => {
     let result = [];
-
+    let program = req.query.program;
+    let start = req.query.startDatum;
+    let slut = req.query.slutDatum;
     result = await utils.sqlQuery(
-      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_SV = "Civilingenjörsprogram i medieteknik" GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC LIMIT 20'
+      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? GROUP BY UTBILDNING_KOD HAVING COUNT(AVBROTT_UTBILDNING) > 0 ORDER BY avbrott DESC',
+      [program, start, slut]
     );
+
     res.status(200).send({
       data: result,
     });
@@ -64,6 +68,7 @@ module.exports = {
       antal_dagar: 0,
       start_datum: startdatum,
     };
+
     //Loopar igenom och ändrar till antalet dagar och procent
     for (var i = 0; i < godkanda_personer.length; i++) {
       res_arr[i + 1] = {
@@ -92,5 +97,10 @@ let daysBetweenDates = (start, end) => {
   var date2 = new Date(start);
   var difference = date1.getTime() - date2.getTime();
   var days = Math.ceil(difference / (1000 * 3600 * 24));
+  //Utifall någon läst kursen vid ett tidigare tillfälle.
+  if (days < 0) {
+    days = 0;
+  }
+
   return days;
 };
