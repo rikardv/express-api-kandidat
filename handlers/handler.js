@@ -74,10 +74,13 @@ module.exports = {
       res_arr[i + 1] = {
         ...godkanda_personer[i],
         andel_procent:
-          (godkanda_personer[i].antal_personer /
-            registrerade_personer[0].antal) *
-            100 +
-          (i > 0 ? res_arr[i].andel_procent : 0),
+          Math.round(
+            ((godkanda_personer[i].antal_personer /
+              registrerade_personer[0].antal) *
+              100 +
+              (i > 0 ? res_arr[i].andel_procent : 0)) *
+              100
+          ) / 100,
         antal_dagar: daysBetweenDates(
           startdatum,
           godkanda_personer[i].examinations_datum
