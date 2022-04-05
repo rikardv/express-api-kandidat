@@ -50,15 +50,15 @@ module.exports = {
     let kurskod = req.query.kurskod;
     let startdatum = req.query.startdatum;
 
-    //Returnerar ett tal
+    //Returnerar antalet som registretas på kursen.
     let registrerade_personer = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT(PERSONNUMMER)) as antal FROM IO_REGISTRERING WHERE STUDIEPERIOD_STARTDATUM = ? AND UTBILDNING_KOD = ?',
-      [startdatum, kurskod]
+      'SELECT COUNT(DISTINCT PERSONNUMMER) as antal FROM `io_registrering` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD',
+      [kurskod, startdatum]
     );
 
-    //Array med exam datum och antalet godkända. Endast TEN1, fixas sen
+    //Array med datum man blev klar med kursen och antalet godkända.
     let godkanda_personer = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT(PERSONNUMMER)) as antal_personer,EXAMINATIONSDATUM as examinations_datum FROM IO_STUDIERESULTAT WHERE UTBILDNING_KOD = ? AND UTBILDNINGSTILLFALLE_STARTDATUM  = ? AND GILTIGSOMSLUTBETYG = 1 AND MODUL_KOD = "TEN1" GROUP BY EXAMINATIONSDATUM',
+      'SELECT COUNT(DISTINCT PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM',
       [kurskod, startdatum]
     );
 
@@ -83,7 +83,7 @@ module.exports = {
           ) / 100,
         antal_dagar: daysBetweenDates(
           startdatum,
-          godkanda_personer[i].examinations_datum
+          godkanda_personer[i].BESLUTSDATUM
         ),
         start_datum: startdatum,
       };
