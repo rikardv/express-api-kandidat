@@ -52,13 +52,13 @@ module.exports = {
 
     //Returnerar antalet som registretas på kursen.
     let registrerade_personer = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT PERSONNUMMER) as antal FROM `io_registrering` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD',
+      'SELECT COUNT(PERSONNUMMER) as antal FROM `io_registrering` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD',
       [kurskod, startdatum]
     );
 
     //Array med datum man blev klar med kursen och antalet godkända.
     let godkanda_personer = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM',
+      'SELECT COUNT(PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM',
       [kurskod, startdatum]
     );
 
