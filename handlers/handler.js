@@ -109,30 +109,28 @@ module.exports = {
     let start_datum = req.query.startdatum;
 
     let create_reg = await utils.sqlQuery(
-      'CREATE TABLE MT_REG AS SELECT PERSONNUMMER,YTTERSTA_KURSPAKETERING_KOD, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM,UTBILDNING_KOD FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM',
+      'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23"',
       [programkod, start_datum, start_datum]
     );
     let create_res = await utils.sqlQuery(
-      'CREATE TABLE MT_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?',
+      'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?',
       [programkod, start_datum, start_datum]
     );
 
     let person_nummer = await utils.sqlQuery(
-      'SELECT DISTINCT PERSONNUMMER FROM MT_REG'
+      'SELECT DISTINCT PERSONNUMMER FROM TEMP_REG'
     );
-
-    console.log(person_nummer);
 
     let res_arr = [];
     let timer = 0;
     for (var i = 0; i < person_nummer.length; i++) {
-      let should_be_completed = await utils.sqlQuery(
-        'SELECT COUNT(UTBILDNING_KOD) as antal FROM MT_REG WHERE PERSONNUMMER = ?',
+      let actual_completed = await utils.sqlQuery(
+        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?',
         person_nummer[i].PERSONNUMMER
       );
 
-      let actual_completed = await utils.sqlQuery(
-        'SELECT COUNT(UTBILDNING_KOD) as antal FROM MT_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?',
+      let should_be_completed = await utils.sqlQuery(
+        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG WHERE PERSONNUMMER = ?',
         person_nummer[i].PERSONNUMMER
       );
 
@@ -150,24 +148,24 @@ module.exports = {
     for (var i = 0; i < res_arr.length; i++) {
       obj.push({
         name: res_arr[i],
-        value: 1,
+        value: 0,
       });
     }
 
-    const sum_arr = Array.from(
-      obj.reduce(
-        (m, { name, value }) => m.set(name, (m.get(name) || 0) + value),
-        new Map()
-      ),
-      ([name, value]) => ({ name, value })
+    var sum_arr = Object.values(
+      obj.reduce((c, { name, value }) => {
+        c[name] = c[name] || { name, value: 0 };
+        c[name].value += 1;
+        return c;
+      }, {})
     );
 
     let sum_arr_sorted = sum_arr.sort(function (a, b) {
       return a.name - b.name;
     });
 
-    let drop = await utils.sqlQuery('DROP TABLE MT_RES');
-    let drop_s = await utils.sqlQuery('DROP TABLE MT_REG');
+    let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES');
+    let drop_temp_reg = await utils.sqlQuery('DROP TABLE TEMP_REG');
 
     res.status(200).send({
       data: sum_arr_sorted,
