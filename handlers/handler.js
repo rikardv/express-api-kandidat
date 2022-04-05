@@ -108,22 +108,32 @@ module.exports = {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
-    let person_nummer = await utils.sqlQuery(
-      'SELECT DISTINCT PERSONNUMMER FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=?',
-      [programkod, start_datum]
+    let create_reg = await utils.sqlQuery(
+      'CREATE TABLE MT_REG AS SELECT PERSONNUMMER,YTTERSTA_KURSPAKETERING_KOD, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM,UTBILDNING_KOD FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM',
+      [programkod, start_datum, start_datum]
     );
+    let create_res = await utils.sqlQuery(
+      'CREATE TABLE MT_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?',
+      [programkod, start_datum, start_datum]
+    );
+
+    let person_nummer = await utils.sqlQuery(
+      'SELECT DISTINCT PERSONNUMMER FROM MT_REG'
+    );
+
+    console.log(person_nummer);
 
     let res_arr = [];
     let timer = 0;
     for (var i = 0; i < person_nummer.length; i++) {
       let should_be_completed = await utils.sqlQuery(
-        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM IO_REGISTRERING WHERE PERSONNUMMER = ? AND YTTERSTA_KURSPAKETERING_KOD = ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND STUDIEPERIOD_STARTDATUM >= ?',
-        [person_nummer[i].PERSONNUMMER, programkod, start_datum, start_datum]
+        'SELECT COUNT(UTBILDNING_KOD) as antal FROM MT_REG WHERE PERSONNUMMER = ?',
+        person_nummer[i].PERSONNUMMER
       );
 
       let actual_completed = await utils.sqlQuery(
-        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM IO_STUDIERESULTAT WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ? AND YTTERSTA_KURSPAKETERING_KOD = ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?',
-        [person_nummer[i].PERSONNUMMER, programkod, start_datum, start_datum]
+        'SELECT COUNT(UTBILDNING_KOD) as antal FROM MT_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?',
+        person_nummer[i].PERSONNUMMER
       );
 
       let diff = should_be_completed[0].antal - actual_completed[0].antal;
@@ -155,6 +165,9 @@ module.exports = {
     let sum_arr_sorted = sum_arr.sort(function (a, b) {
       return a.name - b.name;
     });
+
+    let drop = await utils.sqlQuery('DROP TABLE MT_RES');
+    let drop_s = await utils.sqlQuery('DROP TABLE MT_REG');
 
     res.status(200).send({
       data: sum_arr_sorted,
