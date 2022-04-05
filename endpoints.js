@@ -14,4 +14,12 @@ router.get('/test/avbrott', handler.getAvbrott);
 router.get('/kurser/avslut', handler.getDagar);
 router.get('/kurser/registrering', handler.getKursRegistreringsTillfallen);
 
+/*Utvärderingsbetyg för kurser endpoints */
+router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
+
+/*Program endpoints */
+router.get('/program/kurser', handler.getKurserFranProgram);
+router.get('/program/koder', handler.getProgramKoder);
+
+
 module.exports = router;
