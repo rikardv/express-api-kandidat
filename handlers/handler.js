@@ -108,28 +108,12 @@ module.exports = {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
-    // let reg = await utils.sqlQuery(
-    //   `SELECT COUNT(DISTINCT PERSONNUMMER) as antal FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ? `,
-    //   programkod
-    // );
-
-    //let start_datum = await getProgramStartDatum(programkod);
-
-    // let test_datum =
-    //   start_datum[2].YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM;
-
-    // let all_results = await utils.sqlQuery(
-    //   'SELECT DISTINCT PERSONNUMMER, GILTIGSOMSLUTBETYG, UTBILDNING_KOD, MAX(BESLUTSDATUM), MODUL_KOD FROM `io_studieresultat` WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND BESLUTSDATUM > YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM AND MODUL_KOD!="NULL" AND MODUL_KOD!= "KTR1" AND MODUL_KOD!= "KTR2" AND MODUL_KOD!= "KTR3" GROUP BY PERSONNUMMER, GILTIGSOMSLUTBETYG, UTBILDNING_KOD, MODUL_KOD',
-    //   [programkod, test]
-    // );
-
     let person_nummer = await utils.sqlQuery(
       'SELECT DISTINCT PERSONNUMMER FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=?',
       [programkod, start_datum]
     );
 
     let res_arr = [];
-
     let timer = 0;
     for (var i = 0; i < person_nummer.length; i++) {
       let should_be_completed = await utils.sqlQuery(
@@ -146,37 +130,34 @@ module.exports = {
 
       res_arr[i] = diff;
 
-      console.log(timer, person_nummer.length);
+      process.stdout.write(
+        'Loading ' + timer + '/' + person_nummer.length + '\r'
+      );
       timer++;
-      // for(var i = 0; res_arr.length; i++){
-
-      //   if(diff != res){
-      //   //Lägg till i array
-      //   res.push({
-      //     diff: 0,
-      //   })
-      //   }
-
-      //   else{
-      //     //Plussa på i array
-      //   }
-      // }
     }
 
-    const count = {};
-
-    for (const element of res_arr) {
-      if (count[element]) {
-        count[element] += 1;
-      } else {
-        count[element] = 1;
-      }
+    const obj = [];
+    for (var i = 0; i < res_arr.length; i++) {
+      obj.push({
+        name: res_arr[i],
+        value: 1,
+      });
     }
 
-    console.log(count);
+    const sum_arr = Array.from(
+      obj.reduce(
+        (m, { name, value }) => m.set(name, (m.get(name) || 0) + value),
+        new Map()
+      ),
+      ([name, value]) => ({ name, value })
+    );
+
+    let sum_arr_sorted = sum_arr.sort(function (a, b) {
+      return a.name - b.name;
+    });
 
     res.status(200).send({
-      data: [],
+      data: sum_arr_sorted,
     });
   },
 };
