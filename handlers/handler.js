@@ -3,7 +3,7 @@
  * Calls sqlQuery function from utils and gets data from database
  */
 
-const utils = require('../setup/utils');
+const utils = require("../setup/utils");
 
 module.exports = {
   getBetyg: async (req, res) => {
@@ -62,22 +62,22 @@ module.exports = {
       data: result,
     });
   },
-  
+
   getKurserFranProgram: async (req, res) => {
     //Hämtar alla kurser som tillhör parametern
     //Paramemtern hämtas genom att läsa av URL Tex: http://localhost:8080/getKurserFranProgram?kurskoden=6CDDD, Där parametern paseras på vad som skrivs efter "?"
-    
-    //RIKARD! Hojta till om du vill ha det på ett annat sätt :P 
 
+    //RIKARD! Hojta till om du vill ha det på ett annat sätt :P
 
     let kursKod = req.query.kurskoden;
     var param = [kursKod];
     console.log(kursKod);
     let result = [];
 
-    quary = 'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?'
+    quary =
+      "SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?";
 
-    result = await utils.sqlQuery(quary,kursKod);
+    result = await utils.sqlQuery(quary, kursKod);
     res.status(200).send({
       data: result,
     });
@@ -86,13 +86,12 @@ module.exports = {
   getProgramKoder: async (req, res) => {
     //Hämtar alla programkoder i DT
     let result = [];
-    
+
     result = await utils.sqlQuery(
-      'SELECT `YTTERSTA_KURSPAKETERING_KOD`,ANY_VALUe(`YTTERSTA_KURSPAKETERING_SV`) AS YTTERSTA_KURSPAKETERING_SV FROM io_registrering GROUP BY `YTTERSTA_KURSPAKETERING_KOD`'
+      "SELECT `YTTERSTA_KURSPAKETERING_KOD`,ANY_VALUe(`YTTERSTA_KURSPAKETERING_SV`) AS YTTERSTA_KURSPAKETERING_SV FROM io_registrering GROUP BY `YTTERSTA_KURSPAKETERING_KOD`"
     );
     res.status(200).send({
       data: result,
     });
   },
-
 };
