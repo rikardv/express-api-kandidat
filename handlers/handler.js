@@ -159,8 +159,8 @@ module.exports = {
       data: result,
     });
   },
-  
-    getProgramStartDatum: async (req, res) => {
+
+  getProgramStartDatum: async (req, res) => {
     let programkod = req.query.program;
     result = await getProgramStartDatum(programkod);
 
@@ -173,6 +173,7 @@ module.exports = {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
+    //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
     let create_reg = await utils.sqlQuery(
       'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23"',
       [programkod, start_datum, start_datum]
@@ -188,6 +189,8 @@ module.exports = {
 
     let res_arr = [];
     let timer = 0;
+
+    //Går igenom personer och beräknar "borde klarat" och "har klarat"
     for (var i = 0; i < person_nummer.length; i++) {
       let actual_completed = await utils.sqlQuery(
         'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?',
@@ -203,12 +206,14 @@ module.exports = {
 
       res_arr[i] = diff;
 
+      //Laddningslog för debugging
       process.stdout.write(
         'Loading ' + timer + '/' + person_nummer.length + '\r'
       );
       timer++;
     }
 
+    //Formattererar om datan med properties
     const obj = [];
     for (var i = 0; i < res_arr.length; i++) {
       obj.push({
@@ -217,6 +222,7 @@ module.exports = {
       });
     }
 
+    //Slår ihop samma värden och properties (för recharts)
     var sum_arr = Object.values(
       obj.reduce((c, { name, value }) => {
         c[name] = c[name] || { name, value: 0 };
@@ -225,10 +231,12 @@ module.exports = {
       }, {})
     );
 
+    //Sorterar efter antalet släpande kurser
     let sum_arr_sorted = sum_arr.sort(function (a, b) {
       return a.name - b.name;
     });
 
+    //Tar bort de tillfälliga databaserna
     let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES');
     let drop_temp_reg = await utils.sqlQuery('DROP TABLE TEMP_REG');
 
@@ -247,11 +255,15 @@ let daysBetweenDates = (start, end) => {
   if (days < 0) {
     days = 0;
   }
-  
+
   return days;
 };
 
-
+/**
+ *
+ * Funktion för att hämta startdatum för ett program
+ * @returns start datum
+ */
 let getProgramStartDatum = async (programkod) => {
   let start_dates = await utils.sqlQuery(
     'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `io_registrering` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
@@ -260,4 +272,3 @@ let getProgramStartDatum = async (programkod) => {
 
   return start_dates;
 };
-
