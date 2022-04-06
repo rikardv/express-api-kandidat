@@ -16,6 +16,6 @@ router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
 /*Program endpoints */
 router.get('/program/kurser', handler.getKurserFranProgram);
 router.get('/program/koder', handler.getProgramKoder);
-router.get('/program/HP', handler.getStudenterUtanCSN);
+router.get('/program/HP', handler.getHP);
 
 module.exports = router;

@@ -95,7 +95,7 @@ module.exports = {
     });
   },
 
-  getStudenterUtanCSN: async (req, res) => {
+  getHP: async (req, res) => {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
@@ -121,8 +121,9 @@ module.exports = {
     let limit = 0; //nytt värde för varje personnummer, används för att jämföra antal HP med CSN-gränsen.
     let HP_tot = []; //för att lagra antalet HP varje person läst.
     let HP_completed_tot = []; //för att lagra antalet HP varje person klarat.
-    let res_arr = {}; //används för att skicka resultat till React.
+    let res_arr = []; //används för att skicka resultat till React.
     let under_limit = 0; //counter för antalet personer som är under CSN-gränsen.
+    let percent = 0; //används för att beräkna hur många procent som ej får CSN.
 
     //Loopa igenom för samtliga personnummer.
     for (var i = 0; i < person_nummer.length; i++) {
@@ -157,21 +158,27 @@ module.exports = {
       limit = limit_procent * HP_tot[i]; //beräkna CSN-gränsen
 
       //Jämför avklarade HP med CSN-gränsen.
-      if (limit > HP_completed_tot[i]) {
-        under_limit++; //Om man är under gränsen ökar antalet personer som är under gränsen.
-      }
+      if (limit > HP_completed_tot[i]) under_limit++; //Om man är under gränsen ökar antalet personer som är under gränsen.
 
-      //används för att skicka resultat till React. (ÄNDRAS SEN)
-      /* res_arr[i] = {
-        name: person_nummer[i].PERSONNUMMER,
-        expected: HP_tot[i],
-        actual: HP_completed_tot[i],
-        required: limit,
-      };
-      */
+      //Samma igen fast man är högst 12HP över gränsen, dvs nära att inte få CSN.
+      if (limit + 12 > HP_completed_tot[i]) {
+        percent = HP_completed_tot[i] / limit; //används senare för sortering.
+        //lagra resultat
+        res_arr[i] = {
+          name: person_nummer[i].PERSONNUMMER,
+          actual: HP_completed_tot[i],
+          required: limit,
+          procenten: percent,
+        };
+      } else {
+        //Filtreras bort senare.
+        res_arr[i] = {
+          required: 0,
+        };
+      }
     }
 
-    let percent = Math.round((under_limit / person_nummer.length) * 100); //Omvandla till procent.
+    percent = Math.round((under_limit / person_nummer.length) * 100); //Omvandla till procent.
     console.log(
       'Totalt är ' +
         under_limit +
@@ -182,15 +189,30 @@ module.exports = {
         '%'
     );
 
+    //Formattererar om datan med properties
+    const obj = [];
+    for (var i = 0; i < res_arr.length; i++) {
+      if (res_arr[i].required != 0)
+        //Filtreras bort tomma [i].
+        obj.push({
+          name: res_arr[i].name,
+          actual: res_arr[i].actual,
+          required: res_arr[i].required,
+          procenten: res_arr[i].procenten,
+        });
+    }
+
+    //Sorterar efter hur många procent av HP man uppnått.
+    let sort_HP = obj.sort(function (a, b) {
+      return a.procenten - b.procenten;
+    });
+
     //Ta bort de temporära databaserna.
     let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES');
     let drop_temp_reg = await utils.sqlQuery('DROP TABLE TEMP_REG');
-    res_arr = {
-      name: programkod,
-      value: percent,
-    };
+
     res.status(200).send({
-      data: res_arr,
+      data: sort_HP,
     });
   },
 };
