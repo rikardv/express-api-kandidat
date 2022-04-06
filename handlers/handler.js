@@ -153,7 +153,7 @@ module.exports = {
     let result = [];
 
     result = await utils.sqlQuery(
-      'SELECT DISTINCT `YTTERSTA_KURSPAKETERING_KOD`,`YTTERSTA_KURSPAKETERING_SV`FROM io_registrering'
+      'SELECT `YTTERSTA_KURSPAKETERING_KOD`,ANY_VALUe(`YTTERSTA_KURSPAKETERING_SV`) AS YTTERSTA_KURSPAKETERING_SV FROM io_registrering GROUP BY `YTTERSTA_KURSPAKETERING_KOD`'
     );
     res.status(200).send({
       data: result,
