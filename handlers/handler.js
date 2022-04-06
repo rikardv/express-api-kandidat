@@ -95,7 +95,7 @@ module.exports = {
     });
   },
 
-  getStudenterUtanHP: async (req, res) => {
+  getStudenterUtanCSN: async (req, res) => {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
@@ -121,7 +121,7 @@ module.exports = {
     let limit = 0; //nytt värde för varje personnummer, används för att jämföra antal HP med CSN-gränsen.
     let HP_tot = []; //för att lagra antalet HP varje person läst.
     let HP_completed_tot = []; //för att lagra antalet HP varje person klarat.
-    let res_arr = []; //används för att skicka resultat till React.
+    let res_arr = {}; //används för att skicka resultat till React.
     let under_limit = 0; //counter för antalet personer som är under CSN-gränsen.
 
     //Loopa igenom för samtliga personnummer.
@@ -162,12 +162,13 @@ module.exports = {
       }
 
       //används för att skicka resultat till React. (ÄNDRAS SEN)
-      res_arr[i] = {
+      /* res_arr[i] = {
         name: person_nummer[i].PERSONNUMMER,
         expected: HP_tot[i],
         actual: HP_completed_tot[i],
         required: limit,
       };
+      */
     }
 
     let percent = Math.round((under_limit / person_nummer.length) * 100); //Omvandla till procent.
@@ -184,7 +185,10 @@ module.exports = {
     //Ta bort de temporära databaserna.
     let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES');
     let drop_temp_reg = await utils.sqlQuery('DROP TABLE TEMP_REG');
-
+    res_arr = {
+      name: programkod,
+      value: percent,
+    };
     res.status(200).send({
       data: res_arr,
     });
