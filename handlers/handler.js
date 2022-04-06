@@ -23,7 +23,7 @@ module.exports = {
     let start = req.query.startDatum;
     let slut = req.query.slutDatum;
     result = await utils.sqlQuery(
-      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? GROUP BY UTBILDNING_KOD HAVING COUNT(AVBROTT_UTBILDNING) > 0 ORDER BY avbrott DESC',
+      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM io_registrering WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
       [program, start, slut]
     );
 
