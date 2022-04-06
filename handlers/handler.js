@@ -102,24 +102,19 @@ module.exports = {
     //Skapa en temporär databas som innehåller registrering:
     //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
     let create_reg = await utils.sqlQuery(
-      'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER, AVBROTT_YTTERSTAKURSPAKETERING, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" ',
+      'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL ',
       [programkod, start_datum, start_datum]
     );
     //Skapa en temporär databas som innehåller resultat:
     //alla personnummer som fått ett resultat på en kurs och HP för kursen.
     let create_res = await utils.sqlQuery(
-      'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER, OMFATTNINGVARDE FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?',
+      'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER, OMFATTNINGVARDE FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ? AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL',
       [programkod, start_datum, start_datum]
     );
 
-    //beräkna alla unika personnummer från den temporära registreringsdatabasen.
+    //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
     let person_nummer = await utils.sqlQuery(
       'SELECT DISTINCT PERSONNUMMER FROM TEMP_REG'
-    );
-
-    //beräkna alla unika personnummer som gjort avbrott från programmet från den temporära registreringsdatabasen.
-    let total_break_persons = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT PERSONNUMMER) as count FROM TEMP_REG WHERE AVBROTT_YTTERSTAKURSPAKETERING !="NULL"'
     );
 
     let limit_procent = 0.625; //62.5% HP krävs för att få CSN.
@@ -143,12 +138,22 @@ module.exports = {
         person_nummer[i].PERSONNUMMER
       );
 
+      let count_hp = 0;
       //Undviker "bugg"
       if (completed_HP.length != 0) {
-        HP_completed_tot[i] = completed_HP.length * completed_HP[0].HP_G; //summera alla HP en person avklarat (EJ SÄKER på att det funkar om en kurs har annat HP värde!).
+        for (var k = 0; k < completed_HP.length; k++) {
+          count_hp += completed_HP[k].HP_G; //summera alla HP en person avklarat
+        }
+
+        HP_completed_tot[i] = count_hp; //lagra antal hp en person avklarat.
       } else HP_completed_tot[i] = 0; //Om man inte klarat en enda kurs
 
-      HP_tot[i] = HP.length * HP[0].HP; //Summerar alla HP en person läst (EJ SÄKER på att det funkar om en kurs har annat HP värde!)
+      count_hp = 0;
+      for (var k = 0; k < HP.length; k++) {
+        count_hp += HP[k].HP; //summera alla HP en person läst.
+      }
+
+      HP_tot[i] = count_hp; //lagra antal hp en person läst.
       limit = limit_procent * HP_tot[i]; //beräkna CSN-gränsen
 
       //Jämför avklarade HP med CSN-gränsen.
@@ -165,15 +170,13 @@ module.exports = {
       };
     }
 
-    let total_under_limit = under_limit - total_break_persons[0].count; //Ta bort alla personer som hoppat av programmet från totalt
-    let studentsLeft = person_nummer.length - total_break_persons[0].count; //Ta bort alla personer som hoppat av programmet från totalt
-    let percent = Math.round((total_under_limit / studentsLeft) * 100); //Omvandla till procent.
+    let percent = Math.round((under_limit / person_nummer.length) * 100); //Omvandla till procent.
     console.log(
       'Totalt är ' +
-        total_under_limit +
+        under_limit +
         ' av ' +
-        studentsLeft +
-        ' studenter inte berättigade CSN. Vilket motsvarar ' +
+        person_nummer.length +
+        ' studenter inte berättigade CSN, vilket motsvarar ca ' +
         percent +
         '%'
     );
