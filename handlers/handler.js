@@ -3,7 +3,7 @@
  * Calls sqlQuery function from utils and gets data from database
  */
 
-const utils = require('../setup/utils');
+const utils = require("../setup/utils");
 
 module.exports = {
   getBetyg: async (req, res) => {
@@ -23,7 +23,7 @@ module.exports = {
     let start = req.query.startDatum;
     let slut = req.query.slutDatum;
     result = await utils.sqlQuery(
-      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? GROUP BY UTBILDNING_KOD HAVING COUNT(AVBROTT_UTBILDNING) > 0 ORDER BY avbrott DESC',
+      "SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? GROUP BY UTBILDNING_KOD HAVING COUNT(AVBROTT_UTBILDNING) > 0 ORDER BY avbrott DESC",
       [program, start, slut]
     );
 
@@ -35,7 +35,7 @@ module.exports = {
   getKursRegistreringsTillfallen: async (req, res) => {
     let kurskod = req.query.kurskod;
     let tillfallen = await utils.sqlQuery(
-      'SELECT DISTINCT(STUDIEPERIOD_STARTDATUM) as start_datum FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ? ORDER BY STUDIEPERIOD_STARTDATUM',
+      "SELECT DISTINCT(STUDIEPERIOD_STARTDATUM) as start_datum FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ? ORDER BY STUDIEPERIOD_STARTDATUM",
       kurskod
     );
 
@@ -46,19 +46,31 @@ module.exports = {
     return;
   },
 
+  getAntalStudenter: async (req, res) => {
+    let antalStudenter = [];
+
+    antalStudenter = await utils.sqlQuery(
+      'SELECT COUNT(DISTINCT PERSONNUMMER) as antal FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD = "TND004" AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = "2015-08-17"'
+    );
+
+    res.status(200).send({
+      data: antalStudenter,
+    });
+  },
+
   getDagar: async (req, res) => {
     let kurskod = req.query.kurskod;
     let startdatum = req.query.startdatum;
 
     //Returnerar antalet som registretas på kursen.
     let registrerade_personer = await utils.sqlQuery(
-      'SELECT COUNT(PERSONNUMMER) as antal FROM `io_registrering` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD',
+      "SELECT COUNT(PERSONNUMMER) as antal FROM `io_registrering` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD",
       [kurskod, startdatum]
     );
 
     //Array med datum man blev klar med kursen och antalet godkända.
     let godkanda_personer = await utils.sqlQuery(
-      'SELECT COUNT(PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM',
+      "SELECT COUNT(PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM",
       [kurskod, startdatum]
     );
 
@@ -140,7 +152,7 @@ module.exports = {
     let result = [];
 
     quary =
-      'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?';
+      "SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?";
 
     result = await utils.sqlQuery(quary, kursKod);
     res.status(200).send({
@@ -153,7 +165,7 @@ module.exports = {
     let result = [];
 
     result = await utils.sqlQuery(
-      'SELECT DISTINCT `YTTERSTA_KURSPAKETERING_KOD`,`YTTERSTA_KURSPAKETERING_SV`FROM io_registrering'
+      "SELECT DISTINCT `YTTERSTA_KURSPAKETERING_KOD`,`YTTERSTA_KURSPAKETERING_SV`FROM io_registrering"
     );
     res.status(200).send({
       data: result,
@@ -179,12 +191,12 @@ module.exports = {
       [programkod, start_datum, start_datum]
     );
     let create_res = await utils.sqlQuery(
-      'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?',
+      "CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?",
       [programkod, start_datum, start_datum]
     );
 
     let person_nummer = await utils.sqlQuery(
-      'SELECT DISTINCT PERSONNUMMER FROM TEMP_REG'
+      "SELECT DISTINCT PERSONNUMMER FROM TEMP_REG"
     );
 
     let res_arr = [];
@@ -193,12 +205,12 @@ module.exports = {
     //Går igenom personer och beräknar "borde klarat" och "har klarat"
     for (var i = 0; i < person_nummer.length; i++) {
       let actual_completed = await utils.sqlQuery(
-        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?',
+        "SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?",
         person_nummer[i].PERSONNUMMER
       );
 
       let should_be_completed = await utils.sqlQuery(
-        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG WHERE PERSONNUMMER = ?',
+        "SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG WHERE PERSONNUMMER = ?",
         person_nummer[i].PERSONNUMMER
       );
 
@@ -208,7 +220,7 @@ module.exports = {
 
       //Laddningslog för debugging
       process.stdout.write(
-        'Loading ' + timer + '/' + person_nummer.length + '\r'
+        "Loading " + timer + "/" + person_nummer.length + "\r"
       );
       timer++;
     }
@@ -237,8 +249,8 @@ module.exports = {
     });
 
     //Tar bort de tillfälliga databaserna
-    let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES');
-    let drop_temp_reg = await utils.sqlQuery('DROP TABLE TEMP_REG');
+    let drop_temp_res = await utils.sqlQuery("DROP TABLE TEMP_RES");
+    let drop_temp_reg = await utils.sqlQuery("DROP TABLE TEMP_REG");
 
     res.status(200).send({
       data: sum_arr_sorted,
@@ -266,7 +278,7 @@ let daysBetweenDates = (start, end) => {
  */
 let getProgramStartDatum = async (programkod) => {
   let start_dates = await utils.sqlQuery(
-    'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `io_registrering` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+    "SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `io_registrering` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC",
     programkod
   );
 
