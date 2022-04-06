@@ -10,11 +10,16 @@ const handler = require('./handlers/handler');
 router.get('/test/betyg', handler.getBetyg);
 router.get('/test/avbrott', handler.getAvbrott);
 
+/*Kursavlut endpoints*/
+router.get('/kurser/avslut', handler.getDagar);
+router.get('/kurser/registrering', handler.getKursRegistreringsTillfallen);
+
 /*Utvärderingsbetyg för kurser endpoints */
 router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
 
 /*Program endpoints */
 router.get('/program/kurser', handler.getKurserFranProgram);
 router.get('/program/koder', handler.getProgramKoder);
+router.get('/program/slapande', handler.getStudenterMedSlapande);
 
 module.exports = router;
