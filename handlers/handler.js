@@ -3,7 +3,7 @@
  * Calls sqlQuery function from utils and gets data from database
  */
 
-const utils = require("../setup/utils");
+const utils = require('../setup/utils');
 
 module.exports = {
   getBetyg: async (req, res) => {
@@ -75,7 +75,7 @@ module.exports = {
     let result = [];
 
     quary =
-      "SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?";
+      'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?';
 
     result = await utils.sqlQuery(quary, kursKod);
     res.status(200).send({
@@ -88,7 +88,7 @@ module.exports = {
     let result = [];
 
     result = await utils.sqlQuery(
-      "SELECT `YTTERSTA_KURSPAKETERING_KOD`,ANY_VALUe(`YTTERSTA_KURSPAKETERING_SV`) AS YTTERSTA_KURSPAKETERING_SV FROM io_registrering GROUP BY `YTTERSTA_KURSPAKETERING_KOD`"
+      'SELECT `YTTERSTA_KURSPAKETERING_KOD`,ANY_VALUe(`YTTERSTA_KURSPAKETERING_SV`) AS YTTERSTA_KURSPAKETERING_SV FROM io_registrering GROUP BY `YTTERSTA_KURSPAKETERING_KOD`'
     );
     res.status(200).send({
       data: result,
