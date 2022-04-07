@@ -22,5 +22,6 @@ router.get('/program/kurser', handler.getKurserFranProgram);
 router.get('/program/koder', handler.getProgramKoder);
 router.get('/program/slapande', handler.getStudenterMedSlapande);
 router.get('/program/HP', handler.getHP);
+router.get('/program/datum', handler.getProgramStartDatum);
 
 module.exports = router;
