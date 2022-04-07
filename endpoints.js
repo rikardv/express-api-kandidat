@@ -21,5 +21,6 @@ router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
 router.get('/program/kurser', handler.getKurserFranProgram);
 router.get('/program/koder', handler.getProgramKoder);
 router.get('/program/slapande', handler.getStudenterMedSlapande);
+router.get('/program/HP', handler.getHP);
 
 module.exports = router;
