@@ -173,18 +173,12 @@ module.exports = {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
+    let unique_id = uniqueID();
     //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
-    let create_reg = await utils.sqlQuery(
-      'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23"',
-      [programkod, start_datum, start_datum]
-    );
-    let create_res = await utils.sqlQuery(
-      'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ?',
-      [programkod, start_datum, start_datum]
-    );
+    let create_DB = await createTempDB(programkod, start_datum, unique_id);
 
     let person_nummer = await utils.sqlQuery(
-      'SELECT DISTINCT PERSONNUMMER FROM TEMP_REG'
+      `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
     );
 
     let res_arr = [];
@@ -193,12 +187,12 @@ module.exports = {
     //Går igenom personer och beräknar "borde klarat" och "har klarat"
     for (var i = 0; i < person_nummer.length; i++) {
       let actual_completed = await utils.sqlQuery(
-        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?',
+        `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
         person_nummer[i].PERSONNUMMER
       );
 
       let should_be_completed = await utils.sqlQuery(
-        'SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG WHERE PERSONNUMMER = ?',
+        `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
         person_nummer[i].PERSONNUMMER
       );
 
@@ -236,10 +230,6 @@ module.exports = {
       return a.name - b.name;
     });
 
-    //Tar bort de tillfälliga databaserna
-    let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES');
-    let drop_temp_reg = await utils.sqlQuery('DROP TABLE TEMP_REG');
-
     res.status(200).send({
       data: sum_arr_sorted,
     });
@@ -248,26 +238,12 @@ module.exports = {
   getHP: async (req, res) => {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
+    let unique_id = uniqueID();
 
-    try {
-      //Skapa en temporär databas som innehåller registrering:
-      //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
-      let create_reg = await utils.sqlQuery(
-        'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL ',
-        [programkod, start_datum, start_datum]
-      );
-      //Skapa en temporär databas som innehåller resultat:
-      //alla personnummer som fått ett resultat på en kurs och HP för kursen.
-      let create_res = await utils.sqlQuery(
-        'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER, OMFATTNINGVARDE FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ? AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL',
-        [programkod, start_datum, start_datum]
-      );
-    } catch (error) {
-      let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES, TEMP_REG');
-    }
+    let create_DB = await createTempDB(programkod, start_datum, unique_id);
     //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
     let person_nummer = await utils.sqlQuery(
-      'SELECT DISTINCT PERSONNUMMER FROM TEMP_REG'
+      `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
     );
 
     let limit_procent = 0.625; //62.5% HP krävs för att få CSN.
@@ -282,13 +258,13 @@ module.exports = {
     for (var i = 0; i < person_nummer.length; i++) {
       //Hämta antal HP en person avklarat.
       let completed_HP = await utils.sqlQuery(
-        'SELECT OMFATTNINGVARDE as HP_G FROM TEMP_RES WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?',
+        `SELECT OMFATTNINGVARDE as HP_G FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
         person_nummer[i].PERSONNUMMER
       );
 
       //Hämta antal HP en person läst.
       let HP = await utils.sqlQuery(
-        'SELECT OMFATTNINGVARDE as HP FROM TEMP_REG WHERE PERSONNUMMER = ?',
+        `SELECT OMFATTNINGVARDE as HP FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
         person_nummer[i].PERSONNUMMER
       );
 
@@ -360,10 +336,6 @@ module.exports = {
       return a.procenten - b.procenten;
     });
 
-    //Ta bort de temporära databaserna.
-    let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES');
-    let drop_temp_reg = await utils.sqlQuery('DROP TABLE TEMP_REG');
-
     res.status(200).send({
       data: sort_HP,
     });
@@ -396,3 +368,22 @@ let getProgramStartDatum = async (programkod) => {
 
   return start_dates;
 };
+
+let createTempDB = async (programkod, start_datum, unique_id) => {
+  //Skapa en temporär databas som innehåller registrering:
+  //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
+  let create_reg = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_REG_${unique_id} AS SELECT UTBILDNING_KOD,PERSONNUMMER, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL `,
+    [programkod, start_datum, start_datum]
+  );
+  //Skapa en temporär databas som innehåller resultat:
+  //alla personnummer som fått ett resultat på en kurs och HP för kursen.
+  let create_res = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_RES_${unique_id} AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER, OMFATTNINGVARDE FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ? AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL`,
+    [programkod, start_datum, start_datum]
+  );
+};
+
+function uniqueID() {
+  return Math.floor(Math.random() * Date.now());
+}
