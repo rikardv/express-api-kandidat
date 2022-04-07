@@ -99,19 +99,22 @@ module.exports = {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
-    //Skapa en temporär databas som innehåller registrering:
-    //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
-    let create_reg = await utils.sqlQuery(
-      'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL ',
-      [programkod, start_datum, start_datum]
-    );
-    //Skapa en temporär databas som innehåller resultat:
-    //alla personnummer som fått ett resultat på en kurs och HP för kursen.
-    let create_res = await utils.sqlQuery(
-      'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER, OMFATTNINGVARDE FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ? AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL',
-      [programkod, start_datum, start_datum]
-    );
-
+    try {
+      //Skapa en temporär databas som innehåller registrering:
+      //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
+      let create_reg = await utils.sqlQuery(
+        'CREATE TABLE TEMP_REG AS SELECT UTBILDNING_KOD,PERSONNUMMER, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL ',
+        [programkod, start_datum, start_datum]
+      );
+      //Skapa en temporär databas som innehåller resultat:
+      //alla personnummer som fått ett resultat på en kurs och HP för kursen.
+      let create_res = await utils.sqlQuery(
+        'CREATE TABLE TEMP_RES AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER, OMFATTNINGVARDE FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ? AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL',
+        [programkod, start_datum, start_datum]
+      );
+    } catch (error) {
+      let drop_temp_res = await utils.sqlQuery('DROP TABLE TEMP_RES, TEMP_REG');
+    }
     //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
     let person_nummer = await utils.sqlQuery(
       'SELECT DISTINCT PERSONNUMMER FROM TEMP_REG'
