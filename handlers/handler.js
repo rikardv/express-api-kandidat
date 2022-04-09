@@ -135,14 +135,13 @@ module.exports = {
 
     //RIKARD! Hojta till om du vill ha det på ett annat sätt :P
 
-    let kursKod = req.query.kurskoden;
-    var param = [kursKod];
+    let programKod = req.query.program;
     let result = [];
 
     quary =
       'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?';
 
-    result = await utils.sqlQuery(quary, kursKod);
+    result = await utils.sqlQuery(quary, programKod);
     res.status(200).send({
       data: result,
     });
