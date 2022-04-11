@@ -23,7 +23,7 @@ module.exports = {
     let start = req.query.startDatum;
     let slut = req.query.slutDatum;
     result = await utils.sqlQuery(
-      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM io_registrering WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
+      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
       [program, start, slut]
     );
 
@@ -52,13 +52,13 @@ module.exports = {
 
     //Returnerar antalet som registretas på kursen.
     let registrerade_personer = await utils.sqlQuery(
-      'SELECT COUNT(PERSONNUMMER) as antal FROM `io_registrering` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD',
+      'SELECT COUNT(PERSONNUMMER) as antal FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD',
       [kurskod, startdatum]
     );
 
     //Array med datum man blev klar med kursen och antalet godkända.
     let godkanda_personer = await utils.sqlQuery(
-      'SELECT COUNT(PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM',
+      'SELECT COUNT(PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `IO_STUDIERESULTAT` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM',
       [kurskod, startdatum]
     );
 
@@ -101,7 +101,7 @@ module.exports = {
     let limit = req.query.limit;
     result = await utils.sqlQuery(
       //Quearyn har för tillfället en DESC LIMIT på 10
-      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM evaliuate ORDER BY UTBILDNING_KOD' +
+      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE ORDER BY UTBILDNING_KOD' +
         ` DESC LIMIT ${limit}`
     );
     tempRes = [];
@@ -139,7 +139,7 @@ module.exports = {
     let result = [];
 
     quary =
-      'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `io_registrering` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?';
+      'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ?';
 
     result = await utils.sqlQuery(quary, programKod);
     res.status(200).send({
@@ -152,7 +152,7 @@ module.exports = {
     let result = [];
 
     result = await utils.sqlQuery(
-      'SELECT `YTTERSTA_KURSPAKETERING_KOD`,ANY_VALUe(`YTTERSTA_KURSPAKETERING_SV`) AS YTTERSTA_KURSPAKETERING_SV FROM io_registrering GROUP BY `YTTERSTA_KURSPAKETERING_KOD`'
+      'SELECT `YTTERSTA_KURSPAKETERING_KOD`,ANY_VALUe(`YTTERSTA_KURSPAKETERING_SV`) AS YTTERSTA_KURSPAKETERING_SV FROM IO_REGISTRERING GROUP BY `YTTERSTA_KURSPAKETERING_KOD`'
     );
     res.status(200).send({
       data: result,
@@ -361,7 +361,7 @@ let daysBetweenDates = (start, end) => {
  */
 let getProgramStartDatum = async (programkod) => {
   let start_dates = await utils.sqlQuery(
-    'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `io_registrering` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+    'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `IO_REGISTRERING` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
     programkod
   );
 
