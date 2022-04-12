@@ -13,7 +13,7 @@ router.get('/test/avbrott', handler.getAvbrott);
 /*Kursavlut endpoints*/
 router.get('/kurser/avslut', handler.getDagar);
 router.get('/kurser/registrering', handler.getKursRegistreringsTillfallen);
-
+router.get('/kurser/antalstudenter', handler.getAntalStudenter);
 /*Utvärderingsbetyg för kurser endpoints */
 router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
 

@@ -103,41 +103,43 @@ module.exports = {
     let kursKod = req.query.kursKod;
     result = await utils.sqlQuery(
       //Quearyn har för tillfället en DESC LIMIT på 10
-      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' + ` = "${kursKod}"`+ ' ORDER BY UTBILDNING_KOD' +
+      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
+        ` = "${kursKod}"` +
+        ' ORDER BY UTBILDNING_KOD' +
         ` DESC`
     );
     tempRes = [];
     var kurs = new Object();
     console.log(result);
     //Problem om sökningen är tom...
-    if( result.length <= 0){
+    if (result.length <= 0) {
       res.status(200).send({
-        data: result,});
+        data: result,
+      });
+    } else {
+      kurs.name = result[0].UTBILDNING_KOD;
+
+      //Kass loop för att formatera daten till ReCharts....
+      result.forEach((element) => {
+        //För första iterationen
+        if (kurs.name != element.UTBILDNING_KOD) {
+          tempRes.push(kurs);
+          kurs = new Object();
+          kurs.name = element.UTBILDNING_KOD;
+        }
+
+        if (kurs.name == element.UTBILDNING_KOD) {
+          var key = element.PERIOD;
+          kurs[key] = element.SNITT_BETYG;
+        }
+      });
+      tempRes.push(kurs);
+      result = tempRes;
+      res.status(200).send({
+        data: result,
+      });
     }
-    else{
-    kurs.name = result[0].UTBILDNING_KOD;
-
-    //Kass loop för att formatera daten till ReCharts....
-    result.forEach((element) => {
-      //För första iterationen
-      if (kurs.name != element.UTBILDNING_KOD) {
-        tempRes.push(kurs);
-        kurs = new Object();
-        kurs.name = element.UTBILDNING_KOD;
-      }
-
-      if (kurs.name == element.UTBILDNING_KOD) {
-        var key = element.PERIOD;
-        kurs[key] = element.SNITT_BETYG;
-      }
-    });
-    tempRes.push(kurs);
-    result = tempRes;
-    res.status(200).send({
-      data: result,
-    });
-  }
-},
+  },
 
   getKurserFranProgram: async (req, res) => {
     //Hämtar alla kurser som tillhör parametern
@@ -347,6 +349,18 @@ module.exports = {
 
     res.status(200).send({
       data: sort_HP,
+    });
+  },
+
+  getAntalStudenter: async (req, res) => {
+    let antalStudenter = [];
+
+    antalStudenter = await utils.sqlQuery(
+      'SELECT COUNT(DISTINCT PERSONNUMMER) as antal FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD = "TND004" AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = "2015-08-17"'
+    );
+
+    res.status(200).send({
+      data: antalStudenter,
     });
   },
 };
