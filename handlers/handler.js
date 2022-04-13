@@ -100,6 +100,11 @@ module.exports = {
     let result = [];
     //let limit = req.query.limit;
 
+    /**
+     * Här är din array med kurskoder Max, hälsningar Rikard
+     */
+    console.log(req.query.kurskod);
+
     let kursKoder = req.query.kursKoder;
     result = await utils.sqlQuery(
       //Quearyn har för tillfället en DESC LIMIT på 10
