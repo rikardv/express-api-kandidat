@@ -98,52 +98,64 @@ module.exports = {
   //Tar in antalet som parameter
   getKursUtvarderingsBetyg: async (req, res) => {
     let result = [];
-    //let limit = req.query.limit;
 
-    /**
-     * Här är din array med kurskoder Max, hälsningar Rikard
-     */
-    console.log(req.query.kurskod);
+    //Kolla om ingen kurs är vald, vi vill inte att programmet ska krascha.
+    if (req.query.kurskod != undefined) {
+      let kursKoder = req.query.kurskod;
 
-    let kursKoder = req.query.kursKoder;
-    result = await utils.sqlQuery(
-      //Quearyn har för tillfället en DESC LIMIT på 10
-      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
-        ` = "${kursKoder}"` +
-        ' ORDER BY UTBILDNING_KOD' +
-        ` DESC`
-    );
+      //Om endast en kurs skickas tolkas kurskoden som en string.
+      if (!Array.isArray(kursKoder)) {
+        result[0] = await utils.sqlQuery(
+          //Quearyn för att hämta alla snittbetyg för kursens år och termin.
+          'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
+            ` = "${kursKoder}"` +
+            ' ORDER BY UTBILDNING_KOD' +
+            ` DESC`
+        );
+      } else {
+        //Hämta data för alla kurser och spara i result.
+        for (var i = 0; i < kursKoder.length; i++) {
+          console.log(kursKoder[i]);
+          result[i] = await utils.sqlQuery(
+            //Quearyn för att hämta alla snittbetyg för kursens år och termin.
+            'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
+              ` = "${kursKoder[i]}"` +
+              ' ORDER BY UTBILDNING_KOD' +
+              ` DESC`
+          );
+        }
+      }
+      tempRes = [];
 
-    tempRes = [];
-    var kurs = new Object();
-    //Problem om sökningen är tom...
-    if (result.length <= 0) {
-      res.status(200).send({
-        data: result,
-      });
-    } else {
-      kurs.name = result[0].UTBILDNING_KOD;
+      //Formatering till Rechart. Delvis Tims lösning, fråga mig inte hur den fungerar.
+      for (var i = 0; i < result.length; i++) {
+        var kurs = new Object();
+        kurs.name = result[i].UTBILDNING_KOD;
+        result[i].forEach((element) => {
+          //För första iterationen
+          if (kurs.name != element.UTBILDNING_KOD) {
+            if (kurs.name != undefined) {
+              tempRes.push(kurs);
+            }
+            kurs = new Object();
+            kurs.name = element.UTBILDNING_KOD;
+          }
 
-      //Kass loop för att formatera daten till ReCharts....
-      result.forEach((element) => {
-        //För första iterationen
-        if (kurs.name != element.UTBILDNING_KOD) {
+          if (kurs.name == element.UTBILDNING_KOD) {
+            var key = element.PERIOD;
+            kurs[key] = element.SNITT_BETYG;
+          }
+        });
+        if (kurs.name != undefined) {
           tempRes.push(kurs);
-          kurs = new Object();
-          kurs.name = element.UTBILDNING_KOD;
         }
-
-        if (kurs.name == element.UTBILDNING_KOD) {
-          var key = element.PERIOD;
-          kurs[key] = element.SNITT_BETYG;
-        }
-      });
-      tempRes.push(kurs);
+      }
       result = tempRes;
-      res.status(200).send({
-        data: result,
-      });
     }
+    console.log(result);
+    res.status(200).send({
+      data: result,
+    });
   },
 
   getKurserFranProgram: async (req, res) => {
