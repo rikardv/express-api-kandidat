@@ -100,14 +100,15 @@ module.exports = {
     let result = [];
     //let limit = req.query.limit;
 
-    let kursKod = req.query.kursKod;
+    let kursKoder = req.query.kursKoder;
     result = await utils.sqlQuery(
       //Quearyn har för tillfället en DESC LIMIT på 10
       'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
-        ` = "${kursKod}"` +
+        ` = "${kursKoder}"` +
         ' ORDER BY UTBILDNING_KOD' +
         ` DESC`
     );
+
     tempRes = [];
     var kurs = new Object();
     console.log(result);
@@ -164,7 +165,7 @@ module.exports = {
     let result = [];
 
     result = await utils.sqlQuery(
-      'SELECT YTTERSTA_KURSPAKETERING_KOD, YTTERSTA_KURSPAKETERING_SV AS YTTERSTA_KURSPAKETERING_SV FROM IO_REGISTRERING GROUP BY YTTERSTA_KURSPAKETERING_KOD'
+      'SELECT YTTERSTA_KURSPAKETERING_KOD, YTTERSTA_KURSPAKETERING_SV AS YTTERSTA_KURSPAKETERING_SV FROM IO_REGISTRERING GROUP BY YTTERSTA_KURSPAKETERING_KOD, YTTERSTA_KURSPAKETERING_SV'
     );
     res.status(200).send({
       data: result,
