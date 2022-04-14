@@ -94,6 +94,53 @@ module.exports = {
     });
   },
 
+  //Hämtar kuser med tillhörande år/termin. Summerar ihop kursutväerderingsbetygen och tar fram ett snittbetyg (SNITT_BETYG).
+  //Tar in antalet som parameter
+  getKursUtvarderingsBetyg: async (req, res) => {
+    let result = [];
+    //let limit = req.query.limit;
+
+    let kursKoder = req.query.kursKoder;
+    result = await utils.sqlQuery(
+      //Quearyn har för tillfället en DESC LIMIT på 10
+      'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
+        ` = "${kursKoder}"` +
+        ' ORDER BY UTBILDNING_KOD' +
+        ` DESC`
+    );
+
+    tempRes = [];
+    var kurs = new Object();
+    //Problem om sökningen är tom...
+    if (result.length <= 0) {
+      res.status(200).send({
+        data: result,
+      });
+    } else {
+      kurs.name = result[0].UTBILDNING_KOD;
+
+      //Kass loop för att formatera daten till ReCharts....
+      result.forEach((element) => {
+        //För första iterationen
+        if (kurs.name != element.UTBILDNING_KOD) {
+          tempRes.push(kurs);
+          kurs = new Object();
+          kurs.name = element.UTBILDNING_KOD;
+        }
+
+        if (kurs.name == element.UTBILDNING_KOD) {
+          var key = element.PERIOD;
+          kurs[key] = element.SNITT_BETYG;
+        }
+      });
+      tempRes.push(kurs);
+      result = tempRes;
+      res.status(200).send({
+        data: result,
+      });
+    }
+  },
+
   getKurserFranProgram: async (req, res) => {
     //Hämtar alla kurser som tillhör de valda programmen
     let result = [];
