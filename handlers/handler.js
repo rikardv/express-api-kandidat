@@ -168,7 +168,6 @@ module.exports = {
           );
         }
       }
-      console.log(result);
     }
     res.status(200).send({
       data: result,
