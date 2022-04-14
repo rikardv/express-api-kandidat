@@ -148,13 +148,28 @@ module.exports = {
 
     //RIKARD! Hojta till om du vill ha det på ett annat sätt :P
 
-    let programKod = req.query.program;
     let result = [];
 
-    quary =
-      'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL';
+    if (req.query.program != undefined) {
+      let programKod = req.query.program;
 
-    result = await utils.sqlQuery(quary, programKod);
+      //Om endast en kurs skickas tolkas kurskoden som en string.
+      if (!Array.isArray(programKod)) {
+        result[0] = await utils.sqlQuery(
+          //Quearyn för att hämta alla snittbetyg för kursens år och termin.
+          'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
+          programKod
+        );
+      } else {
+        for (var i = 0; i < programKod.length; i++) {
+          result[i] = await utils.sqlQuery(
+            'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
+            programKod[i]
+          );
+        }
+      }
+      console.log(result);
+    }
     res.status(200).send({
       data: result,
     });
