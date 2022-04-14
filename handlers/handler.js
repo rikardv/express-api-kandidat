@@ -115,7 +115,6 @@ module.exports = {
       } else {
         //Hämta data för alla kurser och spara i result.
         for (var i = 0; i < kursKoder.length; i++) {
-          console.log(kursKoder[i]);
           result[i] = await utils.sqlQuery(
             //Quearyn för att hämta alla snittbetyg för kursens år och termin.
             'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
@@ -152,7 +151,6 @@ module.exports = {
       }
       result = tempRes;
     }
-    console.log(result);
     res.status(200).send({
       data: result,
     });
