@@ -143,11 +143,7 @@ module.exports = {
   },
 
   getKurserFranProgram: async (req, res) => {
-    //Hämtar alla kurser som tillhör parametern
-    //Paramemtern hämtas genom att läsa av URL Tex: http://localhost:8080/getKurserFranProgram?kurskoden=6CDDD, Där parametern paseras på vad som skrivs efter "?"
-
-    //RIKARD! Hojta till om du vill ha det på ett annat sätt :P
-
+    //Hämtar alla kurser som tillhör de valda programmen
     let result = [];
 
     if (req.query.program != undefined) {
@@ -156,16 +152,27 @@ module.exports = {
       //Om endast en kurs skickas tolkas kurskoden som en string.
       if (!Array.isArray(programKod)) {
         result[0] = await utils.sqlQuery(
-          //Quearyn för att hämta alla snittbetyg för kursens år och termin.
+          //Queary för att hämta alla kurser för valt program
           'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
           programKod
         );
       } else {
+        let unique_id = uniqueID();
+        let timer = 0;
+        //Skapar tillfällig databas för att minska belastning i loop
+        let create_DB = await createTempDBCourses(unique_id);
         for (var i = 0; i < programKod.length; i++) {
           result[i] = await utils.sqlQuery(
-            'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
+            'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM TEMP_REG_COURSES_' +
+              unique_id +
+              ' WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
             programKod[i]
           );
+          //Laddningslog för debugging
+          process.stdout.write(
+            'Loading ' + timer + '/' + req.query.program.length + '\r'
+          );
+          timer++;
         }
       }
     }
@@ -175,7 +182,7 @@ module.exports = {
   },
 
   getProgramKoder: async (req, res) => {
-    //Hämtar alla programkoder i DT
+    //Hämtar alla programkoder
     let result = [];
 
     result = await utils.sqlQuery(
@@ -187,8 +194,35 @@ module.exports = {
   },
 
   getProgramStartDatum: async (req, res) => {
+    let result = [];
     let programkod = req.query.program;
-    result = await getProgramStartDatum(programkod);
+
+    if (programkod != undefined) {
+      if (!Array.isArray(req.query.program)) {
+        result[0] = await utils.sqlQuery(
+          'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `IO_REGISTRERING` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+          programkod
+        );
+      } else {
+        let timer = 0;
+        let unique_id = uniqueID();
+        //Skapar tillfällig databas för att minska belastning i loop
+        let create_DB = await createTempDBDates(unique_id);
+        for (var i = 0; i < req.query.program.length; i++) {
+          result[i] = await utils.sqlQuery(
+            'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM TEMP_REG_DATES_' +
+              unique_id +
+              ' WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+            programkod[i]
+          );
+          //Laddningslog för debugging
+          process.stdout.write(
+            'Loading ' + timer + '/' + req.query.program.length + '\r'
+          );
+          timer++;
+        }
+      }
+    }
 
     res.status(200).send({
       data: result,
@@ -393,20 +427,6 @@ let daysBetweenDates = (start, end) => {
   return days;
 };
 
-/**
- *
- * Funktion för att hämta startdatum för ett program
- * @returns start datum
- */
-let getProgramStartDatum = async (programkod) => {
-  let start_dates = await utils.sqlQuery(
-    'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `IO_REGISTRERING` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
-    programkod
-  );
-
-  return start_dates;
-};
-
 let createTempDB = async (programkod, start_datum, unique_id) => {
   //Skapa en temporär databas som innehåller registrering:
   //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
@@ -425,3 +445,57 @@ let createTempDB = async (programkod, start_datum, unique_id) => {
 function uniqueID() {
   return Math.floor(Math.random() * Date.now());
 }
+
+let createTempDBDates = async (unique_id) => {
+  //Skapa en temporär databas som innehåller registrering:
+  //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
+  let create_reg_dates = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_REG_DATES_${unique_id} AS SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERING_KOD FROM IO_REGISTRERING`
+  );
+};
+
+function uniqueID() {
+  return Math.floor(Math.random() * Date.now());
+}
+
+let createTempDBCourses = async (unique_id) => {
+  //Skapa en temporär databas som innehåller registrering:
+  //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
+  let create_reg_courses = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_REG_COURSES_${unique_id} AS SELECT  YTTERSTA_KURSPAKETERING_KOD, UTBILDNING_SV, UTBILDNING_KOD FROM IO_REGISTRERING`
+  );
+};
+
+function uniqueID() {
+  return Math.floor(Math.random() * Date.now());
+}
+
+/*
+getProgramStartDatum: async (req, res) => {
+  let result = [];
+  let programkod = req.query.program;
+
+  console.log(req.query.program);
+
+  if (programkod != undefined) {
+    if (!Array.isArray(req.query.program)) {
+      result[0] = await utils.sqlQuery(
+        'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `IO_REGISTRERING` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+        programkod
+      );
+    } else {
+      for (var i = 0; i < req.query.program.length; i++) {
+        result[i] = await utils.sqlQuery(
+          'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `IO_REGISTRERING` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+          programkod[i]
+        );
+      }
+
+    }
+  }
+
+  res.status(200).send({
+    data: result,
+  });
+},
+*/
