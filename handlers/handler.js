@@ -15,7 +15,39 @@ module.exports = {
     res.status(200).send({
       data: result,
     });
-  },
+    },
+
+    getBetygsfordelning: async (req, res) => {
+        let result = [];
+        result = await utils.sqlQuery(
+            'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD="6CMEN" GROUP BY UTBILDNING_KOD, BETYGSVARDE'
+        );
+
+        res.status(200).send({
+            data: result,
+        });
+    },
+
+    getOmtenta: async (req, res) => {
+        let result = [];
+        result = await utils.sqlQuery(
+            'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
+        );
+
+        result2 = await utils.sqlQuery(
+            'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND MODUL_KOD="TEN1"'
+        );
+
+        result3 = await utils.sqlQuery(
+            'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
+        );
+
+        res.status(200).send({
+            data: result,
+            data2: result2,
+            data3: result3,
+        });
+    },
 
   getAvbrott: async (req, res) => {
     let result = [];
