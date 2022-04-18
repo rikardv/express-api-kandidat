@@ -292,8 +292,24 @@ module.exports = {
       return a.name - b.name;
     });
 
+    //Default antar vi att alla har släpande kurser.
+    var slapandeTot = person_nummer.length;
+    var noSlapandeTot = 0;
+
+    //Om någon inte har släpande kurser så ändras värdena.
+    if (sum_arr_sorted[0].name == 0) {
+      slapandeTot = person_nummer.length - sum_arr_sorted[0].value;
+      noSlapandeTot = sum_arr_sorted[0].value;
+    }
+
+    //Lägg till för att använda i PieChart
+    let pie = [];
+    pie.push({ name: 'Inga släpande', value: noSlapandeTot });
+    pie.push({ name: 'Släpande', value: slapandeTot });
+
     res.status(200).send({
       data: sum_arr_sorted,
+      data2: pie,
     });
   },
 
