@@ -19,13 +19,36 @@ module.exports = {
 
   getAvbrott: async (req, res) => {
     let result = [];
-    let program = req.query.program;
-    let start = req.query.startDatum;
-    let slut = req.query.slutDatum;
-    result = await utils.sqlQuery(
-      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
-      [program, start, slut]
-    );
+
+    if (req.query.program != undefined) {
+      let program = req.query.program;
+      let start = req.query.startDatum;
+      let slut = req.query.slutDatum;
+      let temp = [];
+
+      if (!Array.isArray(program)) {
+        temp = await utils.sqlQuery(
+          'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
+          [program, start, slut]
+        );
+        result.push({
+          program: program,
+          data: temp,
+        });
+      } else {
+        for (var i = 0; i < program.length; i++) {
+          temp = await utils.sqlQuery(
+            'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
+            [program[i], start, slut]
+          );
+          result.push({
+            program: program[i],
+            data: temp,
+          });
+        }
+      }
+    }
+    console.log(result);
 
     res.status(200).send({
       data: result,
