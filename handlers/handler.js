@@ -102,7 +102,6 @@ module.exports = {
     //Kolla om ingen kurs är vald, vi vill inte att programmet ska krascha.
     if (req.query.kurskod != undefined) {
       let kursKoder = req.query.kurskod;
-
       //Om endast en kurs skickas tolkas kurskoden som en string.
       if (!Array.isArray(kursKoder)) {
         result[0] = await utils.sqlQuery(
@@ -316,106 +315,117 @@ module.exports = {
   getHP: async (req, res) => {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
-    let unique_id = uniqueID();
-
-    let create_DB = await createTempDB(programkod, start_datum, unique_id);
-    //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
-    let person_nummer = await utils.sqlQuery(
-      `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
-    );
-
-    let limit_procent = 0.625; //62.5% HP krävs för att få CSN.
-    let limit = 0; //nytt värde för varje personnummer, används för att jämföra antal HP med CSN-gränsen.
-    let HP_tot = []; //för att lagra antalet HP varje person läst.
-    let HP_completed_tot = []; //för att lagra antalet HP varje person klarat.
-    let res_arr = []; //används för att skicka resultat till React.
-    let under_limit = 0; //counter för antalet personer som är under CSN-gränsen.
-    let percent = 0; //används för att beräkna hur många procent som ej får CSN.
-
-    //Loopa igenom för samtliga personnummer.
-    for (var i = 0; i < person_nummer.length; i++) {
-      //Hämta antal HP en person avklarat.
-      let completed_HP = await utils.sqlQuery(
-        `SELECT OMFATTNINGVARDE as HP_G FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
+    let result = [];
+    console.log(programkod);
+    console.log(programkod.length);
+    for (var j = 0; j < programkod.length; j++) {
+      let unique_id = uniqueID();
+      let create_DB = await createTempDB(programkod[j], start_datum, unique_id);
+      //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
+      let person_nummer = await utils.sqlQuery(
+        `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
       );
 
-      //Hämta antal HP en person läst.
-      let HP = await utils.sqlQuery(
-        `SELECT OMFATTNINGVARDE as HP FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
-      );
+      let limit_procent = 0.625; //62.5% HP krävs för att få CSN.
+      let limit = 0; //nytt värde för varje personnummer, används för att jämföra antal HP med CSN-gränsen.
+      let HP_tot = []; //för att lagra antalet HP varje person läst.
+      let HP_completed_tot = []; //för att lagra antalet HP varje person klarat.
+      let res_arr = []; //används för att skicka resultat till React.
+      let under_limit = 0; //counter för antalet personer som är under CSN-gränsen.
+      let percent = 0; //används för att beräkna hur många procent som ej får CSN.
 
-      let count_hp = 0;
-      //Undviker "bugg"
-      if (completed_HP.length != 0) {
-        for (var k = 0; k < completed_HP.length; k++) {
-          count_hp += completed_HP[k].HP_G; //summera alla HP en person avklarat
+      //Loopa igenom för samtliga personnummer.
+      for (var i = 0; i < person_nummer.length; i++) {
+        //Hämta antal HP en person avklarat.
+        let completed_HP = await utils.sqlQuery(
+          `SELECT OMFATTNINGVARDE as HP_G FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
+          person_nummer[i].PERSONNUMMER
+        );
+
+        //Hämta antal HP en person läst.
+        let HP = await utils.sqlQuery(
+          `SELECT OMFATTNINGVARDE as HP FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
+          person_nummer[i].PERSONNUMMER
+        );
+
+        let count_hp = 0;
+        //Undviker "bugg"
+        if (completed_HP.length != 0) {
+          for (var k = 0; k < completed_HP.length; k++) {
+            count_hp += completed_HP[k].HP_G; //summera alla HP en person avklarat
+          }
+
+          HP_completed_tot[i] = count_hp; //lagra antal hp en person avklarat.
+        } else HP_completed_tot[i] = 0; //Om man inte klarat en enda kurs
+
+        count_hp = 0;
+        for (var k = 0; k < HP.length; k++) {
+          count_hp += HP[k].HP; //summera alla HP en person läst.
         }
 
-        HP_completed_tot[i] = count_hp; //lagra antal hp en person avklarat.
-      } else HP_completed_tot[i] = 0; //Om man inte klarat en enda kurs
+        HP_tot[i] = count_hp; //lagra antal hp en person läst.
+        limit = limit_procent * HP_tot[i]; //beräkna CSN-gränsen
 
-      count_hp = 0;
-      for (var k = 0; k < HP.length; k++) {
-        count_hp += HP[k].HP; //summera alla HP en person läst.
+        //Jämför avklarade HP med CSN-gränsen.
+        if (limit > HP_completed_tot[i]) under_limit++; //Om man är under gränsen ökar antalet personer som är under gränsen.
+
+        //Samma igen fast man är högst 12HP över gränsen, dvs nära att inte få CSN.
+        if (limit + 12 > HP_completed_tot[i]) {
+          percent = HP_completed_tot[i] / limit; //används senare för sortering.
+          //lagra resultat
+          res_arr[i] = {
+            name: person_nummer[i].PERSONNUMMER,
+            actual: HP_completed_tot[i],
+            required: limit,
+            procenten: percent,
+          };
+        } else {
+          //Filtreras bort senare.
+          res_arr[i] = {
+            required: 0,
+          };
+        }
       }
 
-      HP_tot[i] = count_hp; //lagra antal hp en person läst.
-      limit = limit_procent * HP_tot[i]; //beräkna CSN-gränsen
+      percent = Math.round((under_limit / person_nummer.length) * 100); //Omvandla till procent.
+      console.log(
+        'Totalt är ' +
+          under_limit +
+          ' av ' +
+          person_nummer.length +
+          ' studenter inte berättigade CSN, vilket motsvarar ca ' +
+          percent +
+          '%'
+      );
 
-      //Jämför avklarade HP med CSN-gränsen.
-      if (limit > HP_completed_tot[i]) under_limit++; //Om man är under gränsen ökar antalet personer som är under gränsen.
-
-      //Samma igen fast man är högst 12HP över gränsen, dvs nära att inte få CSN.
-      if (limit + 12 > HP_completed_tot[i]) {
-        percent = HP_completed_tot[i] / limit; //används senare för sortering.
-        //lagra resultat
-        res_arr[i] = {
-          name: person_nummer[i].PERSONNUMMER,
-          actual: HP_completed_tot[i],
-          required: limit,
-          procenten: percent,
-        };
-      } else {
-        //Filtreras bort senare.
-        res_arr[i] = {
-          required: 0,
-        };
+      //Formattererar om datan med properties
+      const obj = [];
+      for (var i = 0; i < res_arr.length; i++) {
+        if (res_arr[i].required != 0)
+          //Filtreras bort tomma [i].
+          obj.push({
+            name: res_arr[i].name,
+            actual: res_arr[i].actual,
+            required: res_arr[i].required,
+            procenten: res_arr[i].procenten,
+          });
       }
+
+      //Sorterar efter hur många procent av HP man uppnått.
+      let sort_HP = obj.sort(function (a, b) {
+        return a.procenten - b.procenten;
+      });
+
+      result.push({
+        program: programkod[j],
+        under: under_limit,
+        total: person_nummer.length,
+        sort_HP,
+      });
     }
-
-    percent = Math.round((under_limit / person_nummer.length) * 100); //Omvandla till procent.
-    console.log(
-      'Totalt är ' +
-        under_limit +
-        ' av ' +
-        person_nummer.length +
-        ' studenter inte berättigade CSN, vilket motsvarar ca ' +
-        percent +
-        '%'
-    );
-
-    //Formattererar om datan med properties
-    const obj = [];
-    for (var i = 0; i < res_arr.length; i++) {
-      if (res_arr[i].required != 0)
-        //Filtreras bort tomma [i].
-        obj.push({
-          name: res_arr[i].name,
-          actual: res_arr[i].actual,
-          required: res_arr[i].required,
-          procenten: res_arr[i].procenten,
-        });
-    }
-
-    //Sorterar efter hur många procent av HP man uppnått.
-    let sort_HP = obj.sort(function (a, b) {
-      return a.procenten - b.procenten;
-    });
 
     res.status(200).send({
-      data: sort_HP,
+      data: result,
     });
   },
 
