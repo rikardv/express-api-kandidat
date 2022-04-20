@@ -49,14 +49,10 @@ module.exports = {
         });
     },
 
-  getAvbrott: async (req, res) => {
+  getBetygsfordelning: async (req, res) => {
     let result = [];
-    let program = req.query.program;
-    let start = req.query.startDatum;
-    let slut = req.query.slutDatum;
     result = await utils.sqlQuery(
-      'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
-      [program, start, slut]
+      'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD="6CMEN" GROUP BY UTBILDNING_KOD, BETYGSVARDE'
     );
 
     res.status(200).send({
@@ -64,23 +60,118 @@ module.exports = {
     });
   },
 
+  getOmtenta: async (req, res) => {
+    let result = [];
+    result = await utils.sqlQuery(
+      'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
+    );
+
+    result2 = await utils.sqlQuery(
+      'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND MODUL_KOD="TEN1"'
+    );
+
+    result3 = await utils.sqlQuery(
+      'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
+    );
+
+    res.status(200).send({
+      data: result,
+      data2: result2,
+      data3: result3,
+    });
+  },
+
+  getAvbrott: async (req, res) => {
+    let result = [];
+    let program = req.query.program;
+    let start = req.query.startDatum;
+    let slut = req.query.slutDatum;
+
+    params = [program, start, slut];
+
+    // Check if program,start,slut has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
+
+    let temp = [];
+
+    if (!Array.isArray(program)) {
+      temp = await utils.sqlQuery(
+        'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
+        [program, start, slut]
+      );
+      result.push({
+        program: program,
+        data: temp,
+      });
+    } else {
+      for (var i = 0; i < program.length; i++) {
+        temp = await utils.sqlQuery(
+          'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
+          [program[i], start, slut]
+        );
+        result.push({
+          program: program[i],
+          data: temp,
+        });
+      }
+    }
+
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
+    }
+
+    res.status(200).send({
+      data: result,
+    });
+  },
+
   getKursRegistreringsTillfallen: async (req, res) => {
+    let result = [];
     let kurskod = req.query.kurskod;
-    let tillfallen = await utils.sqlQuery(
+
+    params = [kurskod];
+
+    // Check if kurskod has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
+
+    result = await utils.sqlQuery(
       'SELECT DISTINCT(STUDIEPERIOD_STARTDATUM) as start_datum FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ? ORDER BY STUDIEPERIOD_STARTDATUM',
       kurskod
     );
 
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
+    }
+
     res.status(200).send({
-      data: tillfallen,
+      data: result,
     });
 
     return;
   },
 
   getDagar: async (req, res) => {
+    let result = [];
     let kurskod = req.query.kurskod;
     let startdatum = req.query.startdatum;
+
+    params = [kurskod, startdatum];
+
+    // Check if program,start,slut has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
 
     //Returnerar antalet som registretas på kursen.
     let registrerade_personer = await utils.sqlQuery(
@@ -94,8 +185,7 @@ module.exports = {
       [kurskod, startdatum]
     );
 
-    var res_arr = [];
-    res_arr[0] = {
+    result[0] = {
       andel_procent: 0,
       antal_dagar: 0,
       start_datum: startdatum,
@@ -103,14 +193,14 @@ module.exports = {
 
     //Loopar igenom och ändrar till antalet dagar och procent
     for (var i = 0; i < godkanda_personer.length; i++) {
-      res_arr[i + 1] = {
+      result[i + 1] = {
         ...godkanda_personer[i],
         andel_procent:
           Math.round(
             ((godkanda_personer[i].antal_personer /
               registrerade_personer[0].antal) *
               100 +
-              (i > 0 ? res_arr[i].andel_procent : 0)) *
+              (i > 0 ? result[i].andel_procent : 0)) *
               100
           ) / 100,
         antal_dagar: daysBetweenDates(
@@ -120,9 +210,14 @@ module.exports = {
         start_datum: startdatum,
       };
     }
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
+    }
 
     res.status(200).send({
-      data: res_arr,
+      data: result,
     });
   },
 
@@ -130,58 +225,67 @@ module.exports = {
   //Tar in antalet som parameter
   getKursUtvarderingsBetyg: async (req, res) => {
     let result = [];
+    let kursKoder = req.query.kurskod;
+    params = [kursKoder];
 
-    //Kolla om ingen kurs är vald, vi vill inte att programmet ska krascha.
-    if (req.query.kurskod != undefined) {
-      let kursKoder = req.query.kurskod;
+    // Check if kurskoder has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
 
-      //Om endast en kurs skickas tolkas kurskoden som en string.
-      if (!Array.isArray(kursKoder)) {
-        result[0] = await utils.sqlQuery(
+    //Om endast en kurs skickas tolkas kurskoden som en string.
+    if (!Array.isArray(kursKoder)) {
+      result[0] = await utils.sqlQuery(
+        //Quearyn för att hämta alla snittbetyg för kursens år och termin.
+        'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
+          ` = "${kursKoder}"` +
+          ' ORDER BY UTBILDNING_KOD' +
+          ` DESC`
+      );
+    } else {
+      //Hämta data för alla kurser och spara i result.
+      for (var i = 0; i < kursKoder.length; i++) {
+        result[i] = await utils.sqlQuery(
           //Quearyn för att hämta alla snittbetyg för kursens år och termin.
           'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
-            ` = "${kursKoder}"` +
+            ` = "${kursKoder[i]}"` +
             ' ORDER BY UTBILDNING_KOD' +
             ` DESC`
         );
-      } else {
-        //Hämta data för alla kurser och spara i result.
-        for (var i = 0; i < kursKoder.length; i++) {
-          result[i] = await utils.sqlQuery(
-            //Quearyn för att hämta alla snittbetyg för kursens år och termin.
-            'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
-              ` = "${kursKoder[i]}"` +
-              ' ORDER BY UTBILDNING_KOD' +
-              ` DESC`
-          );
-        }
       }
-      tempRes = [];
+    }
+    tempRes = [];
 
-      //Formatering till Rechart. Delvis Tims lösning, fråga mig inte hur den fungerar.
-      for (var i = 0; i < result.length; i++) {
-        var kurs = new Object();
-        kurs.name = result[i].UTBILDNING_KOD;
-        result[i].forEach((element) => {
-          //För första iterationen
-          if (kurs.name != element.UTBILDNING_KOD) {
-            if (kurs.name != undefined) {
-              tempRes.push(kurs);
-            }
-            kurs = new Object();
-            kurs.name = element.UTBILDNING_KOD;
+    //Formatering till Rechart. Delvis Tims lösning, fråga mig inte hur den fungerar.
+    for (var i = 0; i < result.length; i++) {
+      var kurs = new Object();
+      kurs.name = result[i].UTBILDNING_KOD;
+      result[i].forEach((element) => {
+        //För första iterationen
+        if (kurs.name != element.UTBILDNING_KOD) {
+          if (kurs.name != undefined) {
+            tempRes.push(kurs);
           }
-
-          if (kurs.name == element.UTBILDNING_KOD) {
-            var key = element.PERIOD;
-            kurs[key] = element.SNITT_BETYG;
-          }
-        });
-        if (kurs.name != undefined) {
-          tempRes.push(kurs);
+          kurs = new Object();
+          kurs.name = element.UTBILDNING_KOD;
         }
+
+        if (kurs.name == element.UTBILDNING_KOD) {
+          var key = element.PERIOD;
+          kurs[key] = element.SNITT_BETYG;
+        }
+      });
+      if (kurs.name != undefined) {
+        tempRes.push(kurs);
       }
-      result = tempRes;
+    }
+    result = tempRes;
+
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
     }
     res.status(200).send({
       data: result,
@@ -191,31 +295,41 @@ module.exports = {
   getKurserFranProgram: async (req, res) => {
     //Hämtar alla kurser som tillhör de valda programmen
     let result = [];
+    let programKod = req.query.program;
+    params = [programKod];
 
-    if (req.query.program != undefined) {
-      let programKod = req.query.program;
+    // Check if programKod has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
 
-      //Om endast en kurs skickas tolkas kurskoden som en string.
-      if (!Array.isArray(programKod)) {
-        result[0] = await utils.sqlQuery(
-          //Queary för att hämta alla kurser för valt program
-          'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
-          programKod
+    //Om endast en kurs skickas tolkas kurskoden som en string.
+    if (!Array.isArray(programKod)) {
+      result[0] = await utils.sqlQuery(
+        //Queary för att hämta alla kurser för valt program
+        'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM `IO_REGISTRERING` WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
+        programKod
+      );
+    } else {
+      let unique_id = uniqueID();
+      //Skapar tillfällig databas för att minska belastning i loop
+      let create_DB = await createTempDBCourses(unique_id);
+      for (var i = 0; i < programKod.length; i++) {
+        result[i] = await utils.sqlQuery(
+          'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM TEMP_REG_COURSES_' +
+            unique_id +
+            ' WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
+          programKod[i]
         );
-      } else {
-        let unique_id = uniqueID();
-        //Skapar tillfällig databas för att minska belastning i loop
-        let create_DB = await createTempDBCourses(unique_id);
-        for (var i = 0; i < programKod.length; i++) {
-          result[i] = await utils.sqlQuery(
-            'SELECT DISTINCT `UTBILDNING_KOD`,`UTBILDNING_SV` FROM TEMP_REG_COURSES_' +
-              unique_id +
-              ' WHERE `YTTERSTA_KURSPAKETERING_KOD` = ? AND UTBILDNING_KOD IS NOT NULL',
-            programKod[i]
-          );
-        }
       }
     }
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
+    }
+
     res.status(200).send({
       data: result,
     });
@@ -236,26 +350,36 @@ module.exports = {
   getProgramStartDatum: async (req, res) => {
     let result = [];
     let programkod = req.query.program;
+    params = [programkod];
 
-    if (programkod != undefined) {
-      if (!Array.isArray(req.query.program)) {
-        result[0] = await utils.sqlQuery(
-          'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `IO_REGISTRERING` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
-          programkod
+    // Check if programKod has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
+
+    if (!Array.isArray(req.query.program)) {
+      result[0] = await utils.sqlQuery(
+        'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM `IO_REGISTRERING` WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+        programkod
+      );
+    } else {
+      let unique_id = uniqueID();
+      //Skapar tillfällig databas för att minska belastning i loop
+      let create_DB = await createTempDBDates(unique_id);
+      for (var i = 0; i < req.query.program.length; i++) {
+        result[i] = await utils.sqlQuery(
+          'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM TEMP_REG_DATES_' +
+            unique_id +
+            ' WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
+          programkod[i]
         );
-      } else {
-        let unique_id = uniqueID();
-        //Skapar tillfällig databas för att minska belastning i loop
-        let create_DB = await createTempDBDates(unique_id);
-        for (var i = 0; i < req.query.program.length; i++) {
-          result[i] = await utils.sqlQuery(
-            'SELECT DISTINCT YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM TEMP_REG_DATES_' +
-              unique_id +
-              ' WHERE YTTERSTA_KURSPAKETERING_KOD=? ORDER BY YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM DESC',
-            programkod[i]
-          );
-        }
       }
+    }
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
     }
 
     res.status(200).send({
@@ -264,174 +388,255 @@ module.exports = {
   },
 
   getStudenterMedSlapande: async (req, res) => {
+    let result = [];
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
 
-    let unique_id = uniqueID();
-    //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
-    let create_DB = await createTempDB(programkod, start_datum, unique_id);
+    params = [programkod, start_datum];
 
-    let person_nummer = await utils.sqlQuery(
-      `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
-    );
-
-    let res_arr = [];
-    let timer = 0;
-
-    //Går igenom personer och beräknar "borde klarat" och "har klarat"
-    for (var i = 0; i < person_nummer.length; i++) {
-      let actual_completed = await utils.sqlQuery(
-        `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
-      );
-
-      let should_be_completed = await utils.sqlQuery(
-        `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
-      );
-
-      let diff = should_be_completed[0].antal - actual_completed[0].antal;
-
-      res_arr[i] = diff;
-
-      //Laddningslog för debugging
-      process.stdout.write(
-        'Loading ' + timer + '/' + person_nummer.length + '\r'
-      );
-      timer++;
+    // Check if programKod, start_datum has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
     }
 
-    //Formattererar om datan med properties
-    const obj = [];
-    for (var i = 0; i < res_arr.length; i++) {
-      obj.push({
-        name: res_arr[i],
-        value: 0,
+    let counter = programkod.length;
+    if (!Array.isArray(programkod)) {
+      counter = 1;
+    }
+    for (var i = 0; i < counter; i++) {
+      let unique_id = uniqueID();
+      if (counter == 1) {
+        //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
+        let create_DB = await createTempDB(programkod, start_datum, unique_id);
+      } else {
+        let create_DB = await createTempDB(
+          programkod[i],
+          start_datum,
+          unique_id
+        );
+      }
+
+      let person_nummer = await utils.sqlQuery(
+        `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
+      );
+
+      let res_arr = [];
+      let timer = 0;
+      //Går igenom personer och beräknar "borde klarat" och "har klarat"
+      for (var j = 0; j < person_nummer.length; j++) {
+        let actual_completed = await utils.sqlQuery(
+          `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
+          person_nummer[j].PERSONNUMMER
+        );
+
+        let should_be_completed = await utils.sqlQuery(
+          `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
+          person_nummer[j].PERSONNUMMER
+        );
+
+        let diff = should_be_completed[0].antal - actual_completed[0].antal;
+
+        res_arr[j] = diff;
+
+        //Laddningslog för debugging
+        process.stdout.write(
+          'Loading ' + timer + '/' + person_nummer.length + '\r'
+        );
+        timer++;
+      }
+
+      //Formattererar om datan med properties
+      const obj = [];
+      for (var k = 0; k < res_arr.length; k++) {
+        obj.push({
+          name: res_arr[k],
+          value: 0,
+        });
+      }
+
+      //Slår ihop samma värden och properties (för recharts)
+      var sum_arr = Object.values(
+        obj.reduce((c, { name, value }) => {
+          c[name] = c[name] || { name, value: 0 };
+          c[name].value += 1;
+          return c;
+        }, {})
+      );
+
+      //Sorterar efter antalet släpande kurser
+      let sum_arr_sorted = sum_arr.sort(function (a, b) {
+        return a.name - b.name;
       });
+
+      //Default antar vi att alla har släpande kurser.
+      let pie = [];
+      var slapandeTot = person_nummer.length;
+      var noSlapandeTot = 0;
+
+      //Om någon inte har släpande kurser så ändras värdena.
+      if (sum_arr_sorted[0].name == 0) {
+        slapandeTot = person_nummer.length - sum_arr_sorted[0].value;
+        noSlapandeTot = sum_arr_sorted[0].value;
+      }
+      pie.push({ name: 'Inga släpande', value: noSlapandeTot });
+      pie.push({ name: 'Släpande', value: slapandeTot });
+
+      //Lägg till för att använda i rechart
+      if (counter == 1) {
+        result.push({
+          program: programkod,
+          data: sum_arr_sorted,
+          dataPie: pie,
+        });
+      } else {
+        result.push({
+          program: programkod[i],
+          data: sum_arr_sorted,
+          dataPie: pie,
+        });
+      }
     }
-
-    //Slår ihop samma värden och properties (för recharts)
-    var sum_arr = Object.values(
-      obj.reduce((c, { name, value }) => {
-        c[name] = c[name] || { name, value: 0 };
-        c[name].value += 1;
-        return c;
-      }, {})
-    );
-
-    //Sorterar efter antalet släpande kurser
-    let sum_arr_sorted = sum_arr.sort(function (a, b) {
-      return a.name - b.name;
-    });
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
+    }
 
     res.status(200).send({
-      data: sum_arr_sorted,
+      data: result,
     });
   },
 
   getHP: async (req, res) => {
     let programkod = req.query.program;
     let start_datum = req.query.startdatum;
-    let unique_id = uniqueID();
+    params = [programkod, start_datum];
 
-    let create_DB = await createTempDB(programkod, start_datum, unique_id);
-    //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
-    let person_nummer = await utils.sqlQuery(
-      `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
-    );
+    // Check if programKod, start_datum has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
 
-    let limit_procent = 0.625; //62.5% HP krävs för att få CSN.
-    let limit = 0; //nytt värde för varje personnummer, används för att jämföra antal HP med CSN-gränsen.
-    let HP_tot = []; //för att lagra antalet HP varje person läst.
-    let HP_completed_tot = []; //för att lagra antalet HP varje person klarat.
-    let res_arr = []; //används för att skicka resultat till React.
-    let under_limit = 0; //counter för antalet personer som är under CSN-gränsen.
-    let percent = 0; //används för att beräkna hur många procent som ej får CSN.
+    let result = [];
 
-    //Loopa igenom för samtliga personnummer.
-    for (var i = 0; i < person_nummer.length; i++) {
-      //Hämta antal HP en person avklarat.
-      let completed_HP = await utils.sqlQuery(
-        `SELECT OMFATTNINGVARDE as HP_G FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
+    var counter = programkod.length;
+
+    //Om bara ett program är valt tolkar den som en string. Isåfall sätter vi counter till 1.
+    if (!Array.isArray(programkod)) {
+      counter = 1;
+    }
+    for (var j = 0; j < counter; j++) {
+      let unique_id = uniqueID();
+      if (counter == 1) {
+        let create_DB = await createTempDB(programkod, start_datum, unique_id);
+      } else {
+        let create_DB = await createTempDB(
+          programkod[j],
+          start_datum,
+          unique_id
+        );
+      }
+      //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
+      let person_nummer = await utils.sqlQuery(
+        `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
       );
 
-      //Hämta antal HP en person läst.
-      let HP = await utils.sqlQuery(
-        `SELECT OMFATTNINGVARDE as HP FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
-      );
+      let limit_procent = 0.625; //62.5% HP krävs för att få CSN.
+      let limit = 0; //nytt värde för varje personnummer, används för att jämföra antal HP med CSN-gränsen.
+      let HP_tot = []; //för att lagra antalet HP varje person läst.
+      let HP_completed_tot = []; //för att lagra antalet HP varje person klarat.
+      let res_arr = []; //används för att skicka resultat till React.
+      let under_limit = 0; //counter för antalet personer som är under CSN-gränsen.
+      let percent = 0; //används för att beräkna hur många procent som ej får CSN.
 
-      let count_hp = 0;
-      //Undviker "bugg"
-      if (completed_HP.length != 0) {
-        for (var k = 0; k < completed_HP.length; k++) {
-          count_hp += completed_HP[k].HP_G; //summera alla HP en person avklarat
+      //Loopa igenom för samtliga personnummer.
+      for (var i = 0; i < person_nummer.length; i++) {
+        //Hämta antal HP en person avklarat.
+        let completed_HP = await utils.sqlQuery(
+          `SELECT OMFATTNINGVARDE as HP_G FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
+          person_nummer[i].PERSONNUMMER
+        );
+
+        //Hämta antal HP en person läst.
+        let HP = await utils.sqlQuery(
+          `SELECT OMFATTNINGVARDE as HP FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
+          person_nummer[i].PERSONNUMMER
+        );
+
+        let count_hp = 0;
+        //Undviker "bugg"
+        if (completed_HP.length != 0) {
+          for (var k = 0; k < completed_HP.length; k++) {
+            count_hp += completed_HP[k].HP_G; //summera alla HP en person avklarat
+          }
+
+          HP_completed_tot[i] = count_hp; //lagra antal hp en person avklarat.
+        } else HP_completed_tot[i] = 0; //Om man inte klarat en enda kurs
+
+        count_hp = 0;
+        for (var k = 0; k < HP.length; k++) {
+          count_hp += HP[k].HP; //summera alla HP en person läst.
         }
 
-        HP_completed_tot[i] = count_hp; //lagra antal hp en person avklarat.
-      } else HP_completed_tot[i] = 0; //Om man inte klarat en enda kurs
+        HP_tot[i] = count_hp; //lagra antal hp en person läst.
+        limit = limit_procent * HP_tot[i]; //beräkna CSN-gränsen
 
-      count_hp = 0;
-      for (var k = 0; k < HP.length; k++) {
-        count_hp += HP[k].HP; //summera alla HP en person läst.
+        //Jämför avklarade HP med CSN-gränsen.
+        if (limit > HP_completed_tot[i]) under_limit++; //Om man är under gränsen ökar antalet personer som är under gränsen.
+
+        //Samma igen fast man är högst 12HP över gränsen, dvs nära att inte få CSN.
+        if (limit + 12 > HP_completed_tot[i]) {
+          percent = HP_completed_tot[i] / limit; //används senare för sortering.
+          //lagra resultat
+          res_arr[i] = {
+            name: person_nummer[i].PERSONNUMMER,
+            actual: HP_completed_tot[i],
+            required: limit,
+            procenten: percent,
+          };
+        } else {
+          //Filtreras bort senare.
+          res_arr[i] = {
+            required: 0,
+          };
+        }
       }
 
-      HP_tot[i] = count_hp; //lagra antal hp en person läst.
-      limit = limit_procent * HP_tot[i]; //beräkna CSN-gränsen
-
-      //Jämför avklarade HP med CSN-gränsen.
-      if (limit > HP_completed_tot[i]) under_limit++; //Om man är under gränsen ökar antalet personer som är under gränsen.
-
-      //Samma igen fast man är högst 12HP över gränsen, dvs nära att inte få CSN.
-      if (limit + 12 > HP_completed_tot[i]) {
-        percent = HP_completed_tot[i] / limit; //används senare för sortering.
-        //lagra resultat
-        res_arr[i] = {
-          name: person_nummer[i].PERSONNUMMER,
-          actual: HP_completed_tot[i],
-          required: limit,
-          procenten: percent,
-        };
-      } else {
-        //Filtreras bort senare.
-        res_arr[i] = {
-          required: 0,
-        };
+      //Formattererar om datan med properties
+      const obj = [];
+      for (var i = 0; i < res_arr.length; i++) {
+        if (res_arr[i].required != 0)
+          //Filtreras bort tomma [i].
+          obj.push({
+            name: res_arr[i].name,
+            actual: res_arr[i].actual,
+            required: res_arr[i].required,
+            procenten: res_arr[i].procenten,
+          });
       }
+
+      //Sorterar efter hur många procent av HP man uppnått.
+      let sort_HP = obj.sort(function (a, b) {
+        return a.procenten - b.procenten;
+      });
+
+      result.push({
+        program: programkod[j],
+        under: under_limit,
+        total: person_nummer.length,
+        sort_HP,
+      });
     }
-
-    percent = Math.round((under_limit / person_nummer.length) * 100); //Omvandla till procent.
-    console.log(
-      'Totalt är ' +
-        under_limit +
-        ' av ' +
-        person_nummer.length +
-        ' studenter inte berättigade CSN, vilket motsvarar ca ' +
-        percent +
-        '%'
-    );
-
-    //Formattererar om datan med properties
-    const obj = [];
-    for (var i = 0; i < res_arr.length; i++) {
-      if (res_arr[i].required != 0)
-        //Filtreras bort tomma [i].
-        obj.push({
-          name: res_arr[i].name,
-          actual: res_arr[i].actual,
-          required: res_arr[i].required,
-          procenten: res_arr[i].procenten,
-        });
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
     }
-
-    //Sorterar efter hur många procent av HP man uppnått.
-    let sort_HP = obj.sort(function (a, b) {
-      return a.procenten - b.procenten;
-    });
 
     res.status(200).send({
-      data: sort_HP,
+      data: result,
     });
   },
 
