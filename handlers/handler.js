@@ -15,43 +15,55 @@ module.exports = {
     res.status(200).send({
       data: result,
     });
-    },
+  },
 
-    getBetygsfordelning: async (req, res) => {
-        let result = [];
-        result = await utils.sqlQuery(
-            'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD="6CMEN" GROUP BY UTBILDNING_KOD, BETYGSVARDE'
-        );
+  getBetygsfordelning: async (req, res) => {
+    let result = [];
+    result = await utils.sqlQuery(
+      'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD="6CMEN" GROUP BY UTBILDNING_KOD, BETYGSVARDE'
+    );
 
-        res.status(200).send({
-            data: result,
-        });
-    },
+    res.status(200).send({
+      data: result,
+    });
+  },
 
-    getOmtenta: async (req, res) => {
-        let result = [];
-        result = await utils.sqlQuery(
-            'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
-        );
+  getOmtenta: async (req, res) => {
+    let result = [];
+    result = await utils.sqlQuery(
+      'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
+    );
 
-        result2 = await utils.sqlQuery(
-            'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND MODUL_KOD="TEN1"'
-        );
+    result2 = await utils.sqlQuery(
+      'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND MODUL_KOD="TEN1"'
+    );
 
-        result3 = await utils.sqlQuery(
-            'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
-        );
+    result3 = await utils.sqlQuery(
+      'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
+    );
 
-        res.status(200).send({
-            data: result,
-            data2: result2,
-            data3: result3,
-        });
-    },
+    res.status(200).send({
+      data: result,
+      data2: result2,
+      data3: result3,
+    });
+  },
 
   getAvbrott: async (req, res) => {
     let result = [];
+    let program = req.query.program;
+    let start = req.query.startDatum;
+    let slut = req.query.slutDatum;
 
+    params = [program, start, slut];
+
+    // Check if program,start,slut has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
+
+    //This if-statement can be removed
     if (req.query.program != undefined) {
       let program = req.query.program;
       let start = req.query.startDatum;
@@ -79,6 +91,12 @@ module.exports = {
           });
         }
       }
+    }
+
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
     }
 
     res.status(200).send({
