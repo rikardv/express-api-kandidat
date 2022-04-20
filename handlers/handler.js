@@ -129,6 +129,7 @@ module.exports = {
   },
 
   getDagar: async (req, res) => {
+    let result = [];
     let kurskod = req.query.kurskod;
     let startdatum = req.query.startdatum;
 
@@ -152,8 +153,7 @@ module.exports = {
       [kurskod, startdatum]
     );
 
-    var res_arr = [];
-    res_arr[0] = {
+    result[0] = {
       andel_procent: 0,
       antal_dagar: 0,
       start_datum: startdatum,
@@ -161,14 +161,14 @@ module.exports = {
 
     //Loopar igenom och ändrar till antalet dagar och procent
     for (var i = 0; i < godkanda_personer.length; i++) {
-      res_arr[i + 1] = {
+      result[i + 1] = {
         ...godkanda_personer[i],
         andel_procent:
           Math.round(
             ((godkanda_personer[i].antal_personer /
               registrerade_personer[0].antal) *
               100 +
-              (i > 0 ? res_arr[i].andel_procent : 0)) *
+              (i > 0 ? result[i].andel_procent : 0)) *
               100
           ) / 100,
         antal_dagar: daysBetweenDates(
@@ -179,13 +179,13 @@ module.exports = {
       };
     }
     // Check if results have been returned
-    let checkRes = utils.checkResultNotNull(res_arr, res);
+    let checkRes = utils.checkResultNotNull(result, res);
     if (checkRes != 0) {
       return checkRes;
     }
 
     res.status(200).send({
-      data: res_arr,
+      data: result,
     });
   },
 
