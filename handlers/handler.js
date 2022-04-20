@@ -253,84 +253,116 @@ module.exports = {
   },
 
   getStudenterMedSlapande: async (req, res) => {
-    let programkod = req.query.program;
-    let start_datum = req.query.startdatum;
+    let result = [];
 
-    let unique_id = uniqueID();
-    //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
-    let create_DB = await createTempDB(programkod, start_datum, unique_id);
+    if (req.query.program != undefined) {
+      let programkod = req.query.program;
+      let start_datum = req.query.startdatum;
+      let counter = programkod.length;
+      if (!Array.isArray(programkod)) {
+        counter = 1;
+      }
+      for (var i = 0; i < counter; i++) {
+        let unique_id = uniqueID();
+        if (counter == 1) {
+          //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
+          let create_DB = await createTempDB(
+            programkod,
+            start_datum,
+            unique_id
+          );
+        } else {
+          let create_DB = await createTempDB(
+            programkod[i],
+            start_datum,
+            unique_id
+          );
+        }
 
-    let person_nummer = await utils.sqlQuery(
-      `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
-    );
+        let person_nummer = await utils.sqlQuery(
+          `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
+        );
 
-    let res_arr = [];
-    let timer = 0;
+        let res_arr = [];
+        let timer = 0;
+        //Går igenom personer och beräknar "borde klarat" och "har klarat"
+        for (var j = 0; j < person_nummer.length; j++) {
+          let actual_completed = await utils.sqlQuery(
+            `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
+            person_nummer[j].PERSONNUMMER
+          );
 
-    //Går igenom personer och beräknar "borde klarat" och "har klarat"
-    for (var i = 0; i < person_nummer.length; i++) {
-      let actual_completed = await utils.sqlQuery(
-        `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_RES_${unique_id} WHERE AVSER_HEL_KURS = 1 AND PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
-      );
+          let should_be_completed = await utils.sqlQuery(
+            `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
+            person_nummer[j].PERSONNUMMER
+          );
 
-      let should_be_completed = await utils.sqlQuery(
-        `SELECT COUNT(DISTINCT UTBILDNING_KOD) as antal FROM TEMP_REG_${unique_id} WHERE PERSONNUMMER = ?`,
-        person_nummer[i].PERSONNUMMER
-      );
+          let diff = should_be_completed[0].antal - actual_completed[0].antal;
 
-      let diff = should_be_completed[0].antal - actual_completed[0].antal;
+          res_arr[j] = diff;
 
-      res_arr[i] = diff;
+          //Laddningslog för debugging
+          process.stdout.write(
+            'Loading ' + timer + '/' + person_nummer.length + '\r'
+          );
+          timer++;
+        }
 
-      //Laddningslog för debugging
-      process.stdout.write(
-        'Loading ' + timer + '/' + person_nummer.length + '\r'
-      );
-      timer++;
+        //Formattererar om datan med properties
+        const obj = [];
+        for (var k = 0; k < res_arr.length; k++) {
+          obj.push({
+            name: res_arr[k],
+            value: 0,
+          });
+        }
+
+        //Slår ihop samma värden och properties (för recharts)
+        var sum_arr = Object.values(
+          obj.reduce((c, { name, value }) => {
+            c[name] = c[name] || { name, value: 0 };
+            c[name].value += 1;
+            return c;
+          }, {})
+        );
+
+        //Sorterar efter antalet släpande kurser
+        let sum_arr_sorted = sum_arr.sort(function (a, b) {
+          return a.name - b.name;
+        });
+
+        //Default antar vi att alla har släpande kurser.
+        let pie = [];
+        var slapandeTot = person_nummer.length;
+        var noSlapandeTot = 0;
+
+        //Om någon inte har släpande kurser så ändras värdena.
+        if (sum_arr_sorted[0].name == 0) {
+          slapandeTot = person_nummer.length - sum_arr_sorted[0].value;
+          noSlapandeTot = sum_arr_sorted[0].value;
+        }
+        pie.push({ name: 'Inga släpande', value: noSlapandeTot });
+        pie.push({ name: 'Släpande', value: slapandeTot });
+
+        //Lägg till för att använda i rechart
+        if (counter == 1) {
+          result.push({
+            program: programkod,
+            data: sum_arr_sorted,
+            dataPie: pie,
+          });
+        } else {
+          result.push({
+            program: programkod[i],
+            data: sum_arr_sorted,
+            dataPie: pie,
+          });
+        }
+      }
     }
-
-    //Formattererar om datan med properties
-    const obj = [];
-    for (var i = 0; i < res_arr.length; i++) {
-      obj.push({
-        name: res_arr[i],
-        value: 0,
-      });
-    }
-
-    //Slår ihop samma värden och properties (för recharts)
-    var sum_arr = Object.values(
-      obj.reduce((c, { name, value }) => {
-        c[name] = c[name] || { name, value: 0 };
-        c[name].value += 1;
-        return c;
-      }, {})
-    );
-
-    //Sorterar efter antalet släpande kurser
-    let sum_arr_sorted = sum_arr.sort(function (a, b) {
-      return a.name - b.name;
-    });
-
-    //Default antar vi att alla har släpande kurser.
-    var slapandeTot = person_nummer.length;
-    var noSlapandeTot = 0;
-
-    //Om någon inte har släpande kurser så ändras värdena.
-    if (sum_arr_sorted[0].name == 0) {
-      slapandeTot = person_nummer.length - sum_arr_sorted[0].value;
-      noSlapandeTot = sum_arr_sorted[0].value;
-    }
-
-    //Lägg till för att använda i PieChart
-    let pie = [];
-    pie.push({ name: 'Inga släpande', value: noSlapandeTot });
-    pie.push({ name: 'Släpande', value: slapandeTot });
 
     res.status(200).send({
-      data: sum_arr_sorted,
-      data2: pie,
+      data: result,
     });
   },
 
