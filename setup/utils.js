@@ -45,7 +45,7 @@ module.exports = {
   // Returns: - status code 404 if result is empty
   //          - 0 if result is not empty
   checkResultNotNull: (result, res) => {
-    if (!result) {
+    if (!result || result.length === 0) {
       return res.status(404).json({
         success: 0,
         data: 'No such entry in the database.',
