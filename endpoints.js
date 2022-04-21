@@ -1,29 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const handler = require('./handlers/handler');
+const handlerFilter = require('./handlers/handlerFilter');
+const handlerGraf = require('./handlers/handlerGraf');
 
 /**
  * Alla API endpoints defineras nedan med tillhörande handler och dess funktioner
  */
 
-/* Testing endpoints */
-router.get('/test/betyg', handler.getBetyg);
-router.get('/test/avbrott', handler.getAvbrott);
-router.get('/betygsfordelning', handler.getBetygsfordelning);
-router.get('/omtenta', handler.getOmtenta);
+/*Filtrering*/
+router.get('/program/koder', handlerFilter.getProgramKoder);
+router.get('/program/kurser', handlerFilter.getKurserFranProgram);
+router.get('/program/datum', handlerFilter.getProgramStartDatum);
 
-/*Kursavlut endpoints*/
-router.get('/kurser/avslut', handler.getDagar);
-router.get('/kurser/registrering', handler.getKursRegistreringsTillfallen);
-router.get('/kurser/antalstudenter', handler.getAntalStudenter);
-/*Utvärderingsbetyg för kurser endpoints */
-router.get('/kurser/betyg', handler.getKursUtvarderingsBetyg);
+/*Grafer*/
+router.get('/program/CSN', handlerGraf.getCSN);
+router.get('/program/slapande', handlerGraf.getSlapande);
+router.get('/betygsfordelning', handlerGraf.getBetygsfordelning);
+router.get('/kurser/avhopp', handlerGraf.getAvhopp);
+router.get('/kurser/evaliuate', handlerGraf.getEvaliuate);
+router.get('/omtenta', handlerGraf.getOmtenta);
 
-/*Program endpoints */
-router.get('/program/kurser', handler.getKurserFranProgram);
-router.get('/program/koder', handler.getProgramKoder);
-router.get('/program/slapande', handler.getStudenterMedSlapande);
-router.get('/program/HP', handler.getHP);
-router.get('/program/datum', handler.getProgramStartDatum);
+/*Detta ska göras om*/
+router.get('/kurser/avslut', handlerGraf.getDagar);
+router.get('/kurser/registrering', handlerGraf.getKursRegistreringsTillfallen);
 
 module.exports = router;
