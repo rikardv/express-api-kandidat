@@ -526,13 +526,13 @@ module.exports = {
       } else {
         //Returnerar array med antalet som registretas på kursen och startdatumen.
         registrerade = await utils.sqlQuery(
-          'SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD= ?  AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND STUDIEPERIOD_STARTDATUM >= ? GROUP BY STUDIEPERIOD_STARTDATUM',
-          [kurskod[i], start, start]
+          `SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM TEMP_REG_${unique_id} WHERE UTBILDNING_KOD= ? GROUP BY STUDIEPERIOD_STARTDATUM`,
+          kurskod[i]
         );
         //Retunerar array med antalet godkända, startdatum och datumet man blev klar med kursen.
         godkanda = await utils.sqlQuery(
-          'SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND BESLUTSDATUM >= ? GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, AVSER_HEL_KURS, BESLUTSDATUM',
-          [kurskod[i], start, start]
+          `SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM TEMP_RES_${unique_id} WHERE UTBILDNING_KOD= ?  GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, BESLUTSDATUM      `,
+          [kurskod[i]]
         );
       }
 
@@ -549,10 +549,7 @@ module.exports = {
       //Loopa alla startdatum för att beräkna dagar och procent.
       for (var j = 0; j < registrerade.length; j++) {
         for (var k = 0; k < godkanda.length; k++) {
-          if (
-            registrerade[j].startDatum.getTime() ==
-            godkanda[k].StartDatum.getTime()
-          ) {
+          if (registrerade[j].startDatum == godkanda[k].StartDatum) {
             temp.push({
               antalDagar: daysBetweenDates(
                 godkanda[k].StartDatum,
