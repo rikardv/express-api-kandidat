@@ -517,27 +517,29 @@ module.exports = {
           'SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND BESLUTSDATUM >= ? GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, AVSER_HEL_KURS, BESLUTSDATUM',
           [kurskod, start, start]
         );
+
+        kurskod = [kurskod];
       } else {
         //Returnerar array med antalet som registretas på kursen och startdatumen.
-        let registrerade = await utils.sqlQuery(
+        registrerade = await utils.sqlQuery(
           'SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD= ?  AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND STUDIEPERIOD_STARTDATUM >= ? GROUP BY STUDIEPERIOD_STARTDATUM',
           [kurskod[i], start, start]
         );
 
         //Retunerar array med antalet godkända, startdatum och datumet man blev klar med kursen.
-        let godkanda = await utils.sqlQuery(
+        godkanda = await utils.sqlQuery(
           'SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND BESLUTSDATUM >= ? GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, AVSER_HEL_KURS, BESLUTSDATUM',
           [kurskod[i], start, start]
         );
       }
 
-      let temp = [
+      var temp = [
         {
           antalDagar: 0,
           andelProcent: 0,
         },
       ]; //Resultat lagras temporärt i denna för varje kurs, pushas sen till result.
-      let total = 0; //För att beräkna procent som är klar vid respektive slutdatum.
+      var total = 0; //För att beräkna procent som är klar vid respektive slutdatum.
       for (var j = 0; j < registrerade.length; j++) {
         total += registrerade[j].antalStudenter;
       }
@@ -545,7 +547,10 @@ module.exports = {
       //Loopa alla startdatum för att beräkna dagar och procent.
       for (var j = 0; j < registrerade.length; j++) {
         for (var k = 0; k < godkanda.length; k++) {
-          if (registrerade[j].startDatum == godkanda[k].StartDatum) {
+          if (
+            registrerade[j].startDatum.getTime() ==
+            godkanda[k].StartDatum.getTime()
+          ) {
             temp.push({
               antalDagar: daysBetweenDates(
                 godkanda[k].StartDatum,
@@ -568,13 +573,16 @@ module.exports = {
       let added_temp = sort_temp.map((obj) => {
         return {
           antalDagar: obj.antalDagar,
-          andelProcent: (sum += obj.andelProcent),
+          [kurskod[i]]: (sum += obj.andelProcent),
         };
       });
 
-      //Pusha alla resultat för kursen till result.
-      if (counter == 1) result.push({ kurs: kurskod, data: added_temp });
-      else result.push({ kurs: kurskod[i], data: added_temp });
+      //Push to same array
+      result.push(...added_temp);
+
+      // //Pusha alla resultat för kursen till result.
+      // if (counter == 1) result.push({ kurs: kurskod, data: added_temp });
+      // else result.push({ kurs: kurskod[i], data: added_temp });
     }
 
     // Check if results have been returned
@@ -585,6 +593,7 @@ module.exports = {
 
     res.status(200).send({
       data: result,
+      kurser: kurskod,
     });
   },
 
