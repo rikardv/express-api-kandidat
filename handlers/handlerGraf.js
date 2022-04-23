@@ -150,7 +150,7 @@ module.exports = {
     let total = 0;
     let total_slapande = 0;
     if (!Array.isArray(programkod)) {
-      programKod = [programKod];
+      programkod = [programkod];
       counter = 1;
     }
     for (var i = 0; i < counter; i++) {
