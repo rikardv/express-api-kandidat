@@ -415,61 +415,74 @@ module.exports = {
     return;
   },
 
-  getDagar: async (req, res) => {
+  getDagarPerKurs: async (req, res) => {
     let result = [];
-    let kurskod = req.query.kurskod;
     let startdatum = req.query.startdatum;
-
+    let kurskod = req.query.kurskod;
     params = [kurskod, startdatum];
 
-    // Check if program,start,slut has been passed as a parameter
-    let checkParam = utils.checkParameters(params, res);
+    console.log(kurskod);
+    console.log(startdatum);
+    // Check if kurskod has been passed as a parameter
+    /* let checkParam = utils.checkParameters(params, res);
     if (checkParam != 0) {
       return checkParam;
-    }
+    }*/
+    let godkanda = [];
+    let registrerade = [];
+    let unique_id = uniqueID();
+    //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
+    let create_DB = await createTempDBdagar2(kurskod, unique_id);
 
-    //Returnerar antalet som registretas på kursen.
-    let registrerade_personer = await utils.sqlQuery(
-      'SELECT COUNT(PERSONNUMMER) as antal FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD= ?  AND STUDIEPERIOD_STARTDATUM = ? GROUP BY UTBILDNING_KOD',
-      [kurskod, startdatum]
-    );
+    for (var i = 0; i < startdatum.length; i++) {
+      //Returnerar antalet som registretas på kursen.
+      registrerade = await utils.sqlQuery(
+        `SELECT COUNT(PERSONNUMMER) as antalStudenter FROM TEMP_REG_${unique_id} WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM  = ?`,
+        [startdatum[i]]
+      );
 
-    //Array med datum man blev klar med kursen och antalet godkända.
-    let godkanda_personer = await utils.sqlQuery(
-      'SELECT COUNT(PERSONNUMMER) as antal_personer, BESLUTSDATUM FROM `IO_STUDIERESULTAT` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ?  AND UTBILDNINGSTILLFALLE_STARTDATUM = ? GROUP BY UTBILDNING_KOD, BESLUTSDATUM',
-      [kurskod, startdatum]
-    );
+      //Array med datum man blev klar med kursen och antalet godkända.
+      godkanda = await utils.sqlQuery(
+        `SELECT COUNT(PERSONNUMMER) as antalStudenter, BESLUTSDATUM FROM TEMP_RES_${unique_id} WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM  = ? GROUP BY BESLUTSDATUM`,
+        [startdatum[i]]
+      );
 
-    result[0] = {
-      andel_procent: 0,
-      antal_dagar: 0,
-      start_datum: startdatum,
-    };
+      var temp = [
+        {
+          antalDagar: 0,
+          andelProcent: 0,
+        },
+      ]; //Resultat lagras temporärt i denna för varje kurs, pushas sen till result.
 
-    //Loopar igenom och ändrar till antalet dagar och procent
-    for (var i = 0; i < godkanda_personer.length; i++) {
-      result[i + 1] = {
-        ...godkanda_personer[i],
-        andel_procent:
-          Math.round(
-            ((godkanda_personer[i].antal_personer /
-              registrerade_personer[0].antal) *
-              100 +
-              (i > 0 ? result[i].andel_procent : 0)) *
+      //Loopar igenom och ändrar till antalet dagar och procent
+      for (var j = 0; j < godkanda.length; j++) {
+        temp.push({
+          andelProcent: parseFloat(
+            (
+              (godkanda[j].antalStudenter / registrerade[0].antalStudenter) *
               100
-          ) / 100,
-        antal_dagar: daysBetweenDates(
-          startdatum,
-          godkanda_personer[i].BESLUTSDATUM
-        ),
-        start_datum: startdatum,
-      };
+            ).toFixed(2)
+          ),
+          antalDagar: daysBetweenDates(startdatum[i], godkanda[j].BESLUTSDATUM),
+        });
+      }
+
+      //Summera ihop procenten.
+      let sum = 0;
+      let added_temp = temp.map((obj) => {
+        return {
+          antalDagar: obj.antalDagar,
+          andelProcent: (sum += obj.andelProcent),
+        };
+      });
+
+      result.push({ startDatum: startdatum[i], data: added_temp });
     }
     // Check if results have been returned
-    let checkRes = utils.checkResultNotNull(result, res);
+    /* let checkRes = utils.checkResultNotNull(result, res);
     if (checkRes != 0) {
       return checkRes;
-    }
+    }*/
 
     res.status(200).send({
       data: result,
@@ -642,6 +655,22 @@ let createTempDBdagar = async (start, unique_id) => {
   let create_res_dagar = await utils.sqlQuery(
     `CREATE TEMPORARY TABLE TEMP_RES_${unique_id} AS SELECT PERSONNUMMER, UTBILDNINGSTILLFALLE_STARTDATUM, BESLUTSDATUM, UTBILDNING_KOD FROM IO_STUDIERESULTAT WHERE AVSER_HEL_KURS=1 AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND BESLUTSDATUM >= ?`,
     [start, start]
+  );
+};
+
+let createTempDBdagar2 = async (kurskod, unique_id) => {
+  //Skapa en temporär databas som innehåller registrering:
+  //Alla personnummer med tillhörande startdatum för alla kurser.
+  let create_reg_dagar2 = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_REG_${unique_id} AS SELECT PERSONNUMMER, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ?`,
+    [kurskod]
+  );
+
+  //Skapa en temporär databas som innehåller resultat:
+  //Alla personnummer som fått ett godkänt i kurser med tillhörande start och slutdatum.
+  let create_res_dagar2 = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_RES_${unique_id} AS SELECT PERSONNUMMER, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, BESLUTSDATUM FROM IO_STUDIERESULTAT WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD = ?`,
+    [kurskod]
   );
 };
 

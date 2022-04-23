@@ -100,6 +100,34 @@ module.exports = {
       data: result,
     });
   },
+
+  //Hämta alla antagningsdatum för en kurs, används i grafen för DagarPerKurs
+  getKursAntagningsDatum: async (req, res) => {
+    let result = [];
+    let kurskod = req.query.kurskod;
+    params = [kurskod];
+
+    // Check if programKod has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
+
+    result = await utils.sqlQuery(
+      'SELECT DISTINCT STUDIEPERIOD_STARTDATUM  FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD=? ORDER BY STUDIEPERIOD_STARTDATUM',
+      kurskod
+    );
+
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
+    }
+
+    res.status(200).send({
+      data: result,
+    });
+  },
 };
 
 function uniqueID() {
