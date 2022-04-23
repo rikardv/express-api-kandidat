@@ -24,4 +24,7 @@ router.get('/omtenta', handlerGraf.getOmtenta);
 router.get('/kurser/avslut', handlerGraf.getDagar);
 router.get('/kurser/registrering', handlerGraf.getKursRegistreringsTillfallen);
 
+/*in progress*/
+router.get('/kurser/dagar', handlerGraf.getDagarNew);
+
 module.exports = router;

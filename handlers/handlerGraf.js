@@ -481,6 +481,121 @@ module.exports = {
     });
   },
 
+  getDagarNew: async (req, res) => {
+    let result = [];
+    let kurskod = req.query.kurskod;
+    let start = req.query.startdatum;
+
+    params = [kurskod, start];
+    // Check if program,start,slut has been passed as a parameter
+    let checkParam = utils.checkParameters(params, res);
+    if (checkParam != 0) {
+      return checkParam;
+    }
+
+    let counter = kurskod.length;
+    let unique_id = uniqueID();
+
+    //Om bara ett program är valt tolkar den som en string. Isåfall sätter vi counter till 1.
+    if (!Array.isArray(kurskod)) {
+      counter = 1;
+    } else {
+      //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
+      let create_DB = await createTempDBdagar(start, unique_id);
+    }
+
+    let registrerade = [];
+    let godkanda = [];
+
+    //Loopa för alla kurser.
+    for (var i = 0; i < counter; i++) {
+      if (counter == 1) {
+        //Returnerar array med antalet som registretas på kursen och startdatumen.
+        registrerade = await utils.sqlQuery(
+          'SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD= ?  AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND STUDIEPERIOD_STARTDATUM >= ? GROUP BY STUDIEPERIOD_STARTDATUM',
+          [kurskod, start, start]
+        );
+
+        //Retunerar array med antalet godkända, startdatum och datumet man blev klar med kursen.
+        godkanda = await utils.sqlQuery(
+          'SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND BESLUTSDATUM >= ? GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, AVSER_HEL_KURS, BESLUTSDATUM',
+          [kurskod, start, start]
+        );
+
+        kurskod = [kurskod];
+      } else {
+        //Returnerar array med antalet som registretas på kursen och startdatumen.
+        registrerade = await utils.sqlQuery(
+          `SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM TEMP_REG_${unique_id} WHERE UTBILDNING_KOD= ? GROUP BY STUDIEPERIOD_STARTDATUM`,
+          kurskod[i]
+        );
+        //Retunerar array med antalet godkända, startdatum och datumet man blev klar med kursen.
+        godkanda = await utils.sqlQuery(
+          `SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM TEMP_RES_${unique_id} WHERE UTBILDNING_KOD= ?  GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, BESLUTSDATUM      `,
+          [kurskod[i]]
+        );
+      }
+
+      var temp = [
+        {
+          antalDagar: 0,
+          andelProcent: 0,
+        },
+      ]; //Resultat lagras temporärt i denna för varje kurs, pushas sen till result.
+      var total = 0; //För att beräkna procent som är klar vid respektive slutdatum.
+      for (var j = 0; j < registrerade.length; j++) {
+        total += registrerade[j].antalStudenter;
+      }
+      //Loopa alla startdatum för att beräkna dagar och procent.
+      for (var j = 0; j < registrerade.length; j++) {
+        for (var k = 0; k < godkanda.length; k++) {
+          if (registrerade[j].startDatum == godkanda[k].StartDatum) {
+            temp.push({
+              antalDagar: daysBetweenDates(
+                godkanda[k].StartDatum,
+                godkanda[k].SlutDatum
+              ),
+              andelProcent: parseFloat(
+                ((godkanda[k].antalStudenter / total) * 100).toFixed(2)
+              ),
+            });
+          }
+        }
+      }
+
+      //Sorterar efter antalet dagar
+      let sort_temp = temp.sort(function (a, b) {
+        return a.antalDagar - b.antalDagar;
+      });
+
+      let sum = 0;
+      let added_temp = sort_temp.map((obj) => {
+        return {
+          antalDagar: obj.antalDagar,
+          [kurskod[i]]: (sum += obj.andelProcent),
+        };
+      });
+
+      //Push to same array
+      result.push(...added_temp);
+
+      // //Pusha alla resultat för kursen till result.
+      // if (counter == 1) result.push({ kurs: kurskod, data: added_temp });
+      // else result.push({ kurs: kurskod[i], data: added_temp });
+    }
+
+    // Check if results have been returned
+    let checkRes = utils.checkResultNotNull(result, res);
+    if (checkRes != 0) {
+      return checkRes;
+    }
+
+    res.status(200).send({
+      data: result,
+      kurser: kurskod,
+    });
+  },
+
   getOmtenta: async (req, res) => {
     let result = [];
     result = await utils.sqlQuery(
@@ -528,6 +643,22 @@ let createTempDB = async (programkod, start_datum, unique_id) => {
   let create_res = await utils.sqlQuery(
     `CREATE TEMPORARY TABLE TEMP_RES_${unique_id} AS SELECT UTBILDNING_KOD,AVSER_HEL_KURS,PERSONNUMMER, OMFATTNINGVARDE FROM IO_STUDIERESULTAT WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND UTBILDNINGSTILLFALLE_STARTDATUM >= ? AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL`,
     [programkod, start_datum, start_datum]
+  );
+};
+
+let createTempDBdagar = async (start, unique_id) => {
+  //Skapa en temporär databas som innehåller registrering:
+  //Alla personnummer med tillhörande startdatum för alla kurser.
+  let create_reg_dagar = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_REG_${unique_id} AS SELECT PERSONNUMMER, STUDIEPERIOD_STARTDATUM, UTBILDNING_KOD FROM IO_REGISTRERING WHERE STUDIEPERIOD_STARTDATUM >= ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ?`,
+    [start, start]
+  );
+
+  //Skapa en temporär databas som innehåller resultat:
+  //Alla personnummer som fått ett godkänt i kurser med tillhörande start och slutdatum.
+  let create_res_dagar = await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_RES_${unique_id} AS SELECT PERSONNUMMER, UTBILDNINGSTILLFALLE_STARTDATUM, BESLUTSDATUM, UTBILDNING_KOD FROM IO_STUDIERESULTAT WHERE AVSER_HEL_KURS=1 AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND BESLUTSDATUM >= ?`,
+    [start, start]
   );
 };
 
