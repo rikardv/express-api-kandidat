@@ -421,13 +421,11 @@ module.exports = {
     let kurskod = req.query.kurskod;
     params = [kurskod, startdatum];
 
-    console.log(kurskod);
-    console.log(startdatum);
     // Check if kurskod has been passed as a parameter
-    /* let checkParam = utils.checkParameters(params, res);
+    let checkParam = utils.checkParameters(params, res);
     if (checkParam != 0) {
       return checkParam;
-    }*/
+    }
     let godkanda = [];
     let registrerade = [];
     let unique_id = uniqueID();
@@ -472,17 +470,17 @@ module.exports = {
       let added_temp = temp.map((obj) => {
         return {
           antalDagar: obj.antalDagar,
-          andelProcent: (sum += obj.andelProcent),
+          [startdatum[i]]: (sum += obj.andelProcent),
         };
       });
 
-      result.push({ startDatum: startdatum[i], data: added_temp });
+      result.push(...added_temp);
     }
     // Check if results have been returned
-    /* let checkRes = utils.checkResultNotNull(result, res);
+    let checkRes = utils.checkResultNotNull(result, res);
     if (checkRes != 0) {
       return checkRes;
-    }*/
+    }
 
     res.status(200).send({
       data: result,
