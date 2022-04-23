@@ -23,19 +23,14 @@ module.exports = {
 
     //Om bara ett program är valt tolkar den som en string. Isåfall sätter vi counter till 1.
     if (!Array.isArray(programkod)) {
+      programkod = [programkod];
       counter = 1;
     }
     for (var j = 0; j < counter; j++) {
       let unique_id = uniqueID();
-      if (counter == 1) {
-        let create_DB = await createTempDB(programkod, start_datum, unique_id);
-      } else {
-        let create_DB = await createTempDB(
-          programkod[j],
-          start_datum,
-          unique_id
-        );
-      }
+
+      let create_DB = await createTempDB(programkod[j], start_datum, unique_id);
+
       //beräkna alla unika personnummer som läser programmet från den temporära registreringsdatabasen.
       let person_nummer = await utils.sqlQuery(
         `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
@@ -152,25 +147,22 @@ module.exports = {
     }
 
     let counter = programkod.length;
+    let total = 0;
+    let total_slapande = 0;
     if (!Array.isArray(programkod)) {
+      programKod = [programKod];
       counter = 1;
     }
     for (var i = 0; i < counter; i++) {
       let unique_id = uniqueID();
-      if (counter == 1) {
-        //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
-        let create_DB = await createTempDB(programkod, start_datum, unique_id);
-      } else {
-        let create_DB = await createTempDB(
-          programkod[i],
-          start_datum,
-          unique_id
-        );
-      }
+
+      let create_DB = await createTempDB(programkod[i], start_datum, unique_id);
 
       let person_nummer = await utils.sqlQuery(
         `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
       );
+
+      total += person_nummer.length;
 
       let res_arr = [];
       let timer = 0;
@@ -233,20 +225,15 @@ module.exports = {
       pie.push({ name: 'Inga släpande', value: noSlapandeTot });
       pie.push({ name: 'Släpande', value: slapandeTot });
 
+      total_slapande += slapandeTot;
+
       //Lägg till för att använda i rechart
-      if (counter == 1) {
-        result.push({
-          program: programkod,
-          data: sum_arr_sorted,
-          dataPie: pie,
-        });
-      } else {
-        result.push({
-          program: programkod[i],
-          data: sum_arr_sorted,
-          dataPie: pie,
-        });
-      }
+
+      result.push({
+        program: programkod[i],
+        data: sum_arr_sorted,
+        dataPie: pie,
+      });
     }
     // Check if results have been returned
     let checkRes = utils.checkResultNotNull(result, res);
@@ -256,6 +243,8 @@ module.exports = {
 
     res.status(200).send({
       data: result,
+      total,
+      total_slapande,
     });
   },
 
@@ -285,27 +274,27 @@ module.exports = {
     }
 
     let temp = [];
+    let total_avhopp = 0;
+    let total_kurser = 0;
 
     if (!Array.isArray(program)) {
+      program = [program];
+    }
+    for (var i = 0; i < program.length; i++) {
       temp = await utils.sqlQuery(
         'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
-        [program, start, slut]
+        [program[i], start, slut]
       );
+
+      //Calculate stats
+      temp.map((val) => {
+        total_avhopp += val.avbrott;
+        total_kurser++;
+      });
       result.push({
-        program: program,
+        program: program[i],
         data: temp,
       });
-    } else {
-      for (var i = 0; i < program.length; i++) {
-        temp = await utils.sqlQuery(
-          'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
-          [program[i], start, slut]
-        );
-        result.push({
-          program: program[i],
-          data: temp,
-        });
-      }
     }
 
     // Check if results have been returned
@@ -316,6 +305,8 @@ module.exports = {
 
     res.status(200).send({
       data: result,
+      total_avhopp,
+      total_kurser,
     });
   },
 
@@ -334,25 +325,27 @@ module.exports = {
 
     //Om endast en kurs skickas tolkas kurskoden som en string.
     if (!Array.isArray(kursKoder)) {
-      result[0] = await utils.sqlQuery(
+      kursKoder = [kursKoder];
+    }
+    let total_betyg = 0;
+    let total_kurser = 0;
+    //Hämta data för alla kurser och spara i result.
+    for (var i = 0; i < kursKoder.length; i++) {
+      result[i] = await utils.sqlQuery(
         //Quearyn för att hämta alla snittbetyg för kursens år och termin.
         'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
-          ` = "${kursKoder}"` +
+          ` = "${kursKoder[i]}"` +
           ' ORDER BY UTBILDNING_KOD' +
           ` DESC`
       );
-    } else {
-      //Hämta data för alla kurser och spara i result.
-      for (var i = 0; i < kursKoder.length; i++) {
-        result[i] = await utils.sqlQuery(
-          //Quearyn för att hämta alla snittbetyg för kursens år och termin.
-          'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
-            ` = "${kursKoder[i]}"` +
-            ' ORDER BY UTBILDNING_KOD' +
-            ` DESC`
-        );
-      }
+
+      result[i].map(() => {
+        total_betyg++;
+      });
+
+      total_kurser++;
     }
+
     tempRes = [];
 
     //Formatering till Rechart. Delvis Tims lösning, fråga mig inte hur den fungerar.
@@ -387,6 +380,8 @@ module.exports = {
     }
     res.status(200).send({
       data: result,
+      total_betyg,
+      total_kurser,
     });
   },
 
@@ -499,42 +494,27 @@ module.exports = {
     //Om bara ett program är valt tolkar den som en string. Isåfall sätter vi counter till 1.
     if (!Array.isArray(kurskod)) {
       counter = 1;
-    } else {
-      //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
-      let create_DB = await createTempDBdagar(start, unique_id);
+      kurskod = [kurskod];
     }
+    //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
+    let create_DB = await createTempDBdagar(start, unique_id);
 
     let registrerade = [];
     let godkanda = [];
+    let total_studenter = 0;
 
     //Loopa för alla kurser.
     for (var i = 0; i < counter; i++) {
-      if (counter == 1) {
-        //Returnerar array med antalet som registretas på kursen och startdatumen.
-        registrerade = await utils.sqlQuery(
-          'SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM `IO_REGISTRERING` WHERE UTBILDNING_KOD= ?  AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND STUDIEPERIOD_STARTDATUM >= ? GROUP BY STUDIEPERIOD_STARTDATUM',
-          [kurskod, start, start]
-        );
-
-        //Retunerar array med antalet godkända, startdatum och datumet man blev klar med kursen.
-        godkanda = await utils.sqlQuery(
-          'SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM `io_studieresultat` WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD= ? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ? AND BESLUTSDATUM >= ? GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, AVSER_HEL_KURS, BESLUTSDATUM',
-          [kurskod, start, start]
-        );
-
-        kurskod = [kurskod];
-      } else {
-        //Returnerar array med antalet som registretas på kursen och startdatumen.
-        registrerade = await utils.sqlQuery(
-          `SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM TEMP_REG_${unique_id} WHERE UTBILDNING_KOD= ? GROUP BY STUDIEPERIOD_STARTDATUM`,
-          kurskod[i]
-        );
-        //Retunerar array med antalet godkända, startdatum och datumet man blev klar med kursen.
-        godkanda = await utils.sqlQuery(
-          `SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM TEMP_RES_${unique_id} WHERE UTBILDNING_KOD= ?  GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, BESLUTSDATUM      `,
-          [kurskod[i]]
-        );
-      }
+      //Returnerar array med antalet som registretas på kursen och startdatumen.
+      registrerade = await utils.sqlQuery(
+        `SELECT COUNT(PERSONNUMMER) as antalStudenter, STUDIEPERIOD_STARTDATUM as startDatum FROM TEMP_REG_${unique_id} WHERE UTBILDNING_KOD= ? GROUP BY STUDIEPERIOD_STARTDATUM`,
+        kurskod[i]
+      );
+      //Retunerar array med antalet godkända, startdatum och datumet man blev klar med kursen.
+      godkanda = await utils.sqlQuery(
+        `SELECT COUNT(PERSONNUMMER) as antalStudenter, UTBILDNINGSTILLFALLE_STARTDATUM as StartDatum, BESLUTSDATUM as SlutDatum FROM TEMP_RES_${unique_id} WHERE UTBILDNING_KOD= ?  GROUP BY UTBILDNINGSTILLFALLE_STARTDATUM, BESLUTSDATUM      `,
+        [kurskod[i]]
+      );
 
       var temp = [
         {
@@ -546,6 +526,7 @@ module.exports = {
       for (var j = 0; j < registrerade.length; j++) {
         total += registrerade[j].antalStudenter;
       }
+      total_studenter += total;
       //Loopa alla startdatum för att beräkna dagar och procent.
       for (var j = 0; j < registrerade.length; j++) {
         for (var k = 0; k < godkanda.length; k++) {
@@ -593,6 +574,8 @@ module.exports = {
     res.status(200).send({
       data: result,
       kurser: kurskod,
+      total_studenter,
+      total_kurser: counter,
     });
   },
 
