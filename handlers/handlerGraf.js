@@ -478,10 +478,10 @@ module.exports = {
     }
 
     // Check if results have been returned
-    let checkRes = utils.checkResultNotNull(result, res);
+    /* let checkRes = utils.checkResultNotNull(result, res);
     if (checkRes != 0) {
       return checkRes;
-    }
+    }*/
 
     res.status(200).send({
       data: result,
