@@ -11,6 +11,7 @@ const handlerGraf = require('./handlers/handlerGraf');
 router.get('/program/koder', handlerFilter.getProgramKoder);
 router.get('/program/kurser', handlerFilter.getKurserFranProgram);
 router.get('/program/datum', handlerFilter.getProgramStartDatum);
+router.get('/kurs/datum', handlerFilter.getKursAntagningsDatum);
 
 /*Grafer*/
 router.get('/program/CSN', handlerGraf.getCSN);
@@ -21,7 +22,7 @@ router.get('/kurser/evaliuate', handlerGraf.getEvaliuate);
 router.get('/omtenta', handlerGraf.getOmtenta);
 
 /*Detta ska göras om*/
-router.get('/kurser/avslut', handlerGraf.getDagar);
+router.get('/kurser/avslut', handlerGraf.getDagarPerKurs);
 router.get('/kurser/registrering', handlerGraf.getKursRegistreringsTillfallen);
 
 /*in progress*/
