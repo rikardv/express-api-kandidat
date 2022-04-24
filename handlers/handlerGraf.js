@@ -470,7 +470,7 @@ module.exports = {
       let added_temp = temp.map((obj) => {
         return {
           antalDagar: obj.antalDagar,
-          [startdatum[i]]: (sum += obj.andelProcent),
+          [startdatum[i]]: (sum += obj.andelProcent).toFixed(2),
         };
       });
 
