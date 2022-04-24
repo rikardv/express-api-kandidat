@@ -33,13 +33,13 @@ module.exports = {
 
     //Tabellen innehåller kurskod, kurs, betygsvärde och beslutsdatum.
     let tableBetyg = await utils.sqlQuery(
-      `SELECT UTBILDNING_KOD as Kurskod, UTBILDNING_SV as Kurs, MAX(BETYGSVARDE) as Betyg, BESLUTSDATUM as Beslutsdaum FROM io_studieresultat WHERE AVSER_HEL_KURS='1' AND PERSONNUMMER= ? GROUP BY Kurskod, Kurs, Beslutsdaum`,
+      `SELECT UTBILDNING_KOD as kurskod, UTBILDNING_SV as kurs, MAX(BETYGSVARDE) as betyg, BESLUTSDATUM as beslutsdatum FROM io_studieresultat WHERE AVSER_HEL_KURS='1' AND PERSONNUMMER= ? GROUP BY kurskod, kurs, beslutsdatum`,
       person_nummer
     );
 
     //Tabellen innehåller kurskod och antal omtentor.
     let tableOmtentor = await utils.sqlQuery(
-      `SELECT UTBILDNING_KOD as Kurskod, COUNT(CASE BETYGSVARDE WHEN 'U' then 1 else null end) as Omentor FROM io_studieresultat WHERE PERSONNUMMER=? GROUP BY Kurskod ORDER BY Omentor DESC`,
+      `SELECT UTBILDNING_KOD as kurskod, COUNT(CASE BETYGSVARDE WHEN 'U' then 1 else null end) as omtentor FROM io_studieresultat WHERE PERSONNUMMER=? GROUP BY kurskod ORDER BY omtentor DESC`,
       person_nummer
     );
 
@@ -49,7 +49,7 @@ module.exports = {
 
     //Tabellen innehåller kurskod och startdatum för kurs.
     let tableRegistrering = await utils.sqlQuery(
-      `SELECT UTBILDNING_KOD as Kurskod, STUDIEPERIOD_STARTDATUM as Startdatum FROM io_registrering WHERE PERSONNUMMER=?`,
+      `SELECT UTBILDNING_KOD as kurs_kod, STUDIEPERIOD_STARTDATUM as start_datum FROM io_registrering WHERE PERSONNUMMER=?`,
       person_nummer
     );
 
@@ -57,8 +57,17 @@ module.exports = {
 
     /*KOD KOD KOD */
 
+    let id = 0;
+    tableBetyg = tableBetyg.map((res) => {
+      return { ...res, id: id++ };
+    });
+    let id_second = 0;
+    tableOmtentor = tableOmtentor.map((res) => {
+      return { ...res, id: id_second++ };
+    });
+
     return res.status(200).send({
-      data: tableBetyg,
+      data: { tableBetyg, tableOmtentor },
     });
   },
 };
