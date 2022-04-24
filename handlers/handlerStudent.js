@@ -30,15 +30,32 @@ module.exports = {
 
   getStudentGrades: async (req, res) => {
     let person_nummer = req.query.personnummer;
+
+    //Tabellen innehåller kurskod, kurs, betygsvärde och beslutsdatum.
     let tableBetyg = await utils.sqlQuery(
       `SELECT UTBILDNING_KOD as Kurskod, UTBILDNING_SV as Kurs, MAX(BETYGSVARDE) as Betyg, BESLUTSDATUM as Beslutsdaum FROM io_studieresultat WHERE AVSER_HEL_KURS='1' AND PERSONNUMMER= ? GROUP BY Kurskod, Kurs, Beslutsdaum`,
       person_nummer
     );
 
+    //Tabellen innehåller kurskod och antal omtentor.
     let tableOmtentor = await utils.sqlQuery(
-      `SELECT UTBILDNING_KOD as Kurskod, COUNT(CASE BETYGSVARDE WHEN 'U' then 1 else null end) as Omentor FROM io_studieresultat WHERE PERSONNUMMER=? GROUP BY Kurskod, Kurs ORDER BY Omentor DESC`,
+      `SELECT UTBILDNING_KOD as Kurskod, COUNT(CASE BETYGSVARDE WHEN 'U' then 1 else null end) as Omentor FROM io_studieresultat WHERE PERSONNUMMER=? GROUP BY Kurskod ORDER BY Omentor DESC`,
       person_nummer
     );
+
+    //Lägg till Omtentor i tabellen tableBetyg
+
+    /*KOD KOD KOD */
+
+    //Tabellen innehåller kurskod och startdatum för kurs.
+    let tableRegistrering = await utils.sqlQuery(
+      `SELECT UTBILDNING_KOD as Kurskod, STUDIEPERIOD_STARTDATUM as Startdatum FROM io_registrering WHERE PERSONNUMMER=?`,
+      person_nummer
+    );
+
+    //Beräkna antal dagar mellan påbörjad och avslutad kurs och lägg till i tabellen.
+
+    /*KOD KOD KOD */
 
     return res.status(200).send({
       data: tableBetyg,
@@ -50,7 +67,7 @@ let createTempDB = async (person_nummer, unique_id) => {
   //Skapa en temporär databas som innehåller resultat:
   //Alla personnummer som fått ett godkänt i kurser med tillhörande start och slutdatum.
   await utils.sqlQuery(
-    `CREATE TEMPORARY TABLE TEMP_STUDENT_${unique_id} AS SELECT FORNAMN,EFTERNAMN,PERSONNUMMER,UTBILDNING_KOD,UTBILDNING_SV,STUDIEPERIOD_STARTDATUM,YTTERSTA_KURSPAKETERING_KOD,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM IO_REGISTRERING WHERE PERSONNUMMER = ?`,
+    `CREATE TEMPORARY TABLE TEMP_STUDENT_${unique_id} AS SELECT FORNAMN,EFTERNAMN,PERSONNUMMER,UTBILDNING_KOD,UTBILDNING_SV,YTTERSTA_KURSPAKETERING_KOD,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM IO_REGISTRERING WHERE PERSONNUMMER = ?`,
     person_nummer
   );
 };
