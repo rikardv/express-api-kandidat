@@ -476,7 +476,7 @@ module.exports = {
 
       if (added_temp.length > 1) result.push(...added_temp);
     }
-    console.log(result);
+
     // Check if results have been returned
     let checkRes = utils.checkResultNotNull(result, res);
     if (checkRes != 0) {
