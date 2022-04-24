@@ -33,7 +33,7 @@ module.exports = {
 
     //Tabellen innehåller kurskod, kurs, betygsvärde och beslutsdatum.
     let tableBetyg = await utils.sqlQuery(
-      `SELECT UTBILDNING_KOD as kurskod, UTBILDNING_SV as kurs, MAX(BETYGSVARDE) as betyg, BESLUTSDATUM as beslutsdatum FROM io_studieresultat WHERE AVSER_HEL_KURS='1' AND PERSONNUMMER= ? GROUP BY kurskod, kurs, beslutsdatum`,
+      `SELECT UTBILDNING_KOD as kurskod, MAX(BETYGSVARDE) as betyg, BESLUTSDATUM as beslutsdatum FROM io_studieresultat WHERE AVSER_HEL_KURS='1' AND PERSONNUMMER= ? GROUP BY kurskod, beslutsdatum`,
       person_nummer
     );
 
@@ -43,31 +43,51 @@ module.exports = {
       person_nummer
     );
 
-    //Lägg till Omtentor i tabellen tableBetyg
-
-    /*KOD KOD KOD */
-
     //Tabellen innehåller kurskod och startdatum för kurs.
     let tableRegistrering = await utils.sqlQuery(
-      `SELECT UTBILDNING_KOD as kurs_kod, STUDIEPERIOD_STARTDATUM as start_datum FROM io_registrering WHERE PERSONNUMMER=?`,
+      `SELECT UTBILDNING_KOD as kurskod, UTBILDNING_SV as kurs, STUDIEPERIOD_STARTDATUM as start_datum FROM io_registrering WHERE PERSONNUMMER=? ORDER BY STUDIEPERIOD_STARTDATUM ASC`,
       person_nummer
     );
 
-    //Beräkna antal dagar mellan påbörjad och avslutad kurs och lägg till i tabellen.
-
-    /*KOD KOD KOD */
-
+    //Lägg till id, betyg och antal dagar till avklarad kurs i registreringstabellen.
     let id = 0;
-    tableBetyg = tableBetyg.map((res) => {
-      return { ...res, id: id++ };
-    });
-    let id_second = 0;
-    tableOmtentor = tableOmtentor.map((res) => {
-      return { ...res, id: id_second++ };
+    tableRegistrering = tableRegistrering.map((res) => {
+      let betyg = '-';
+      let dagar = '-';
+      let avklarad = 'Nej';
+      tableBetyg.map((res2) => {
+        //Resultat för avklarad kurs läggs till här
+        if (res.kurskod == res2.kurskod) {
+          dagar = daysBetweenDates(res.start_datum, res2.beslutsdatum); //Beräkna dagar till avklarad kurs
+          betyg = res2.betyg;
+          avklarad = 'Ja';
+        }
+      });
+
+      return {
+        ...res,
+        id: id++,
+        betyg: betyg,
+        dagar: dagar,
+        avklarad: avklarad,
+      };
     });
 
-    return res.status(200).send({
-      data: { tableBetyg, tableOmtentor },
+    //Lägg till antal omtentor i registreringstabellen.
+    tableRegistrering = tableRegistrering.map((res) => {
+      let omtentor = 0;
+      tableOmtentor.map((res2) => {
+        //Resultat för avklarad kurs läggs till här
+        if (res.kurskod == res2.kurskod) {
+          omtentor = res2.omtentor;
+        }
+      });
+
+      return { ...res, omtentor: omtentor };
+    });
+
+    res.status(200).send({
+      data: tableRegistrering,
     });
   },
 };
@@ -79,4 +99,17 @@ let createTempDB = async (person_nummer, unique_id) => {
     `CREATE TEMPORARY TABLE TEMP_STUDENT_${unique_id} AS SELECT FORNAMN,EFTERNAMN,PERSONNUMMER,UTBILDNING_KOD,UTBILDNING_SV,YTTERSTA_KURSPAKETERING_KOD,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM IO_REGISTRERING WHERE PERSONNUMMER = ?`,
     person_nummer
   );
+};
+
+let daysBetweenDates = (start, end) => {
+  var date1 = new Date(end);
+  var date2 = new Date(start);
+  var difference = date1.getTime() - date2.getTime();
+  var days = Math.ceil(difference / (1000 * 3600 * 24));
+  //Utifall någon läst kursen vid ett tidigare tillfälle.
+  if (days < 0) {
+    days = 0;
+  }
+
+  return days;
 };
