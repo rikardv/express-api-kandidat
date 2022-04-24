@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const handlerFilter = require('./handlers/handlerFilter');
 const handlerGraf = require('./handlers/handlerGraf');
+const handlerStudent = require('./handlers/handlerStudent');
 
 /**
  * Alla API endpoints defineras nedan med tillhörande handler och dess funktioner
@@ -26,5 +27,9 @@ router.get('/kurser/registrering', handlerGraf.getKursRegistreringsTillfallen);
 
 /*in progress*/
 router.get('/kurser/dagar', handlerGraf.getDagarNew);
+
+/*Student information*/
+router.get('/student/info', handlerStudent.getStudentInfo);
+router.get('/student/resultat', handlerStudent.getStudentGrades);
 
 module.exports = router;
