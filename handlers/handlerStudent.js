@@ -45,7 +45,7 @@ module.exports = {
 
     //Tabellen innehåller kurskod och startdatum för kurs.
     let tableRegistrering = await utils.sqlQuery(
-      `SELECT UTBILDNING_KOD as kurskod, UTBILDNING_SV as kurs, STUDIEPERIOD_STARTDATUM as start_datum FROM io_registrering WHERE PERSONNUMMER=? ORDER BY STUDIEPERIOD_STARTDATUM ASC`,
+      `SELECT UTBILDNING_KOD as kurskod, UTBILDNING_SV as kurs, MAX(STUDIEPERIOD_STARTDATUM) as start_datum FROM io_registrering WHERE PERSONNUMMER=? GROUP BY kurskod, kurs ORDER BY start_datum ASC`,
       person_nummer
     );
 
@@ -53,7 +53,7 @@ module.exports = {
     let id = 0;
     tableRegistrering = tableRegistrering.map((res) => {
       let betyg = '-';
-      let dagar = '-';
+      let dagar = Number('-');
       let avklarad = 'Nej';
       tableBetyg.map((res2) => {
         //Resultat för avklarad kurs läggs till här
