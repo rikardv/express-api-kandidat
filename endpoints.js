@@ -32,5 +32,6 @@ router.get('/kurser/dagar', handlerGraf.getDagarNew);
 /*Student information*/
 router.get('/student/info', handlerStudent.getStudentInfo);
 router.get('/student/resultat', handlerStudent.getStudentGrades);
+router.get('/student', handlerStudent.getStudenter);
 
 module.exports = router;
