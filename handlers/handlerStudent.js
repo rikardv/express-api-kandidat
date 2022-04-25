@@ -90,6 +90,27 @@ module.exports = {
       data: tableRegistrering,
     });
   },
+
+  getStudenter: async (req, res) => {
+    let programKod = req.query.programKod;
+    let startDatum = req.query.startDatum;
+    let unique_id = Math.floor(Math.random() * Date.now());
+
+    await createTempDB2(programKod, startDatum, unique_id);
+
+    let studenter = await utils.sqlQuery(
+      `SELECT  FORNAMN,EFTERNAMN,PERSONNUMMER,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM TEMP_STUDENT_${unique_id}`
+    );
+
+    let id = 0;
+    studenter = studenter.map((res) => {
+      return { ...res, id: id++ };
+    });
+
+    res.status(200).send({
+      data: studenter,
+    });
+  },
 };
 
 let createTempDB = async (person_nummer, unique_id) => {
@@ -98,6 +119,15 @@ let createTempDB = async (person_nummer, unique_id) => {
   await utils.sqlQuery(
     `CREATE TEMPORARY TABLE TEMP_STUDENT_${unique_id} AS SELECT FORNAMN,EFTERNAMN,PERSONNUMMER,UTBILDNING_KOD,UTBILDNING_SV,YTTERSTA_KURSPAKETERING_KOD,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM IO_REGISTRERING WHERE PERSONNUMMER = ?`,
     person_nummer
+  );
+};
+
+let createTempDB2 = async (programKod, startDatum, unique_id) => {
+  //Skapa en temporär databas som innehåller resultat:
+  //Alla personnummer som fått ett godkänt i kurser med tillhörande start och slutdatum.
+  await utils.sqlQuery(
+    `CREATE TEMPORARY TABLE TEMP_STUDENT_${unique_id} AS SELECT DISTINCT FORNAMN,EFTERNAMN,PERSONNUMMER,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM = ?`,
+    [programKod, startDatum]
   );
 };
 
