@@ -94,21 +94,31 @@ module.exports = {
   getStudenter: async (req, res) => {
     let programKod = req.query.programKod;
     let startDatum = req.query.startDatum;
-    let unique_id = Math.floor(Math.random() * Date.now());
 
-    await createTempDB2(programKod, startDatum, unique_id);
-
-    let studenter = await utils.sqlQuery(
-      `SELECT  FORNAMN,EFTERNAMN,PERSONNUMMER,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM TEMP_STUDENT_${unique_id}`
-    );
-
+    let result = [];
     let id = 0;
-    studenter = studenter.map((res) => {
-      return { ...res, id: id++ };
-    });
+
+    if (!Array.isArray(programKod)) {
+      programKod = [programKod];
+    }
+
+    for (i = 0; i < programKod.length; i++) {
+      let unique_id = Math.floor(Math.random() * Date.now());
+      await createTempDB2(programKod[i], startDatum, unique_id);
+
+      let studenter = await utils.sqlQuery(
+        `SELECT  FORNAMN,EFTERNAMN,PERSONNUMMER,YTTERSTA_KURSPAKETERING_SV, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, YTTERSTA_KURSPAKETERINGSTILLFALLE_SLUTDATUM FROM TEMP_STUDENT_${unique_id}`
+      );
+
+      studenter = studenter.map((res) => {
+        return { ...res, id: id++ };
+      });
+
+      result.push(...studenter);
+    }
 
     res.status(200).send({
-      data: studenter,
+      data: result,
     });
   },
 };
