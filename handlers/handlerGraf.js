@@ -549,7 +549,7 @@ module.exports = {
                 godkanda[k].SlutDatum
               ),
               andelProcent: parseFloat(
-                ((godkanda[k].antalStudenter / total) * 100).toFixed(2)
+                (godkanda[k].antalStudenter / total) * 100
               ),
             });
           }
@@ -565,7 +565,7 @@ module.exports = {
       let added_temp = sort_temp.map((obj) => {
         return {
           antalDagar: obj.antalDagar,
-          [kurskod[i]]: (sum += obj.andelProcent),
+          [kurskod[i]]: (sum += obj.andelProcent).toFixed(2),
         };
       });
 
