@@ -432,6 +432,8 @@ module.exports = {
     //Skapar tillfälliga databaser för programmet för att minska belastning i senare loop
     let create_DB = await createTempDBdagar2(kurskod, unique_id);
 
+    let dates = [];
+
     for (var i = 0; i < startdatum.length; i++) {
       //Returnerar antalet som registretas på kursen.
       registrerade = await utils.sqlQuery(
@@ -474,7 +476,10 @@ module.exports = {
         };
       });
 
-      if (added_temp.length > 1) result.push(...added_temp);
+      if (added_temp.length > 1) {
+        result.push(...added_temp);
+        dates.push(startdatum[i]);
+      }
     }
 
     // Check if results have been returned
@@ -485,6 +490,7 @@ module.exports = {
 
     res.status(200).send({
       data: result,
+      dates,
     });
   },
 
