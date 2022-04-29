@@ -437,13 +437,13 @@ module.exports = {
     for (var i = 0; i < startdatum.length; i++) {
       //Returnerar antalet som registretas på kursen.
       registrerade = await utils.sqlQuery(
-        `SELECT COUNT(PERSONNUMMER) as antalStudenter FROM TEMP_REG_${unique_id} WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM  = ?`,
+        `SELECT COUNT(PERSONNUMMER) as antalStudenter FROM TEMP_REG_${unique_id} WHERE STUDIEPERIOD_STARTDATUM  = ?`,
         [startdatum[i]]
       );
 
       //Array med datum man blev klar med kursen och antalet godkända.
       godkanda = await utils.sqlQuery(
-        `SELECT COUNT(PERSONNUMMER) as antalStudenter, BESLUTSDATUM FROM TEMP_RES_${unique_id} WHERE YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM  = ? GROUP BY BESLUTSDATUM`,
+        `SELECT COUNT(PERSONNUMMER) as antalStudenter, BESLUTSDATUM FROM TEMP_RES_${unique_id} WHERE UTBILDNINGSTILLFALLE_STARTDATUM  = ? GROUP BY BESLUTSDATUM`,
         [startdatum[i]]
       );
 
@@ -475,7 +475,6 @@ module.exports = {
           [startdatum[i]]: (sum += obj.andelProcent).toFixed(2),
         };
       });
-
       if (added_temp.length > 1) {
         result.push(...added_temp);
         dates.push(startdatum[i]);
@@ -667,14 +666,14 @@ let createTempDBdagar2 = async (kurskod, unique_id) => {
   //Skapa en temporär databas som innehåller registrering:
   //Alla personnummer med tillhörande startdatum för alla kurser.
   let create_reg_dagar2 = await utils.sqlQuery(
-    `CREATE TEMPORARY TABLE TEMP_REG_${unique_id} AS SELECT PERSONNUMMER, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ?`,
+    `CREATE TEMPORARY TABLE TEMP_REG_${unique_id} AS SELECT PERSONNUMMER, STUDIEPERIOD_STARTDATUM FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ?`,
     [kurskod]
   );
 
   //Skapa en temporär databas som innehåller resultat:
   //Alla personnummer som fått ett godkänt i kurser med tillhörande start och slutdatum.
   let create_res_dagar2 = await utils.sqlQuery(
-    `CREATE TEMPORARY TABLE TEMP_RES_${unique_id} AS SELECT PERSONNUMMER, YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM, BESLUTSDATUM FROM IO_STUDIERESULTAT WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD = ?`,
+    `CREATE TEMPORARY TABLE TEMP_RES_${unique_id} AS SELECT PERSONNUMMER, UTBILDNINGSTILLFALLE_STARTDATUM, BESLUTSDATUM FROM IO_STUDIERESULTAT WHERE AVSER_HEL_KURS=1 AND UTBILDNING_KOD = ?`,
     [kurskod]
   );
 };
