@@ -248,16 +248,29 @@ module.exports = {
     });
   },
 
-  getBetygsfordelning: async (req, res) => {
-    let result = [];
-    result = await utils.sqlQuery(
-      'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD="6CMEN" GROUP BY UTBILDNING_KOD, BETYGSVARDE'
-    );
+    getBetygsfordelning: async (req, res) => {
 
-    res.status(200).send({
-      data: result,
-    });
-  },
+        let result2 = {}
+        let result = new Array(req.query.programkod.length);
+        for (let i = 0; i < result.length; ++i) {
+            result[i] = await utils.sqlQuery(
+                'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD=? GROUP BY UTBILDNING_KOD, BETYGSVARDE'
+                , req.query.programkod[i]
+            );
+        }
+
+        for (let kurs in req.query.kurskod) {
+            result2[req.query.kurskod[kurs]] = await utils.sqlQuery(
+                'SELECT COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS name FROM io_studieresultat WHERE UTBILDNING_KOD=? GROUP BY BETYGSVARDE'
+                , req.query.kurskod[kurs]
+            );
+        }
+        
+        res.status(200).send({
+            programData: result,
+            kursData: result2,
+        });
+    },
 
   getAvhopp: async (req, res) => {
     let result = [];
