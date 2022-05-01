@@ -609,19 +609,27 @@ module.exports = {
     });
   },
 
-  getOmtenta: async (req, res) => {
-    let result = [];
-    result = await utils.sqlQuery(
-      'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
-    );
+    getOmtenta: async (req, res) => {
 
-    result2 = await utils.sqlQuery(
-      'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND MODUL_KOD="TEN1"'
-    );
+        let kurskod = req.query.kurskod
+        console.log(kurskod)
+        let result = {};
+        let result2 = {};
+        let result3 = {};
+        for (let i = 0; i < kurskod.length; ++i) {
+            result[kurskod[i]] = await utils.sqlQuery(
+                'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER', kurskod[i]
+            );
 
-    result3 = await utils.sqlQuery(
-      'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD="TNA006" AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER'
-    );
+            result2[kurskod[i]] = await utils.sqlQuery(
+                'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND MODUL_KOD="TEN1"', kurskod[i]
+            );
+
+            result3[kurskod[i]] = await utils.sqlQuery(
+                'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER', kurskod[i]
+            );
+        }
+    
 
     res.status(200).send({
       data: result,
