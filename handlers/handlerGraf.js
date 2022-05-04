@@ -26,6 +26,7 @@ module.exports = {
       programkod = [programkod];
       counter = 1;
     }
+
     for (var j = 0; j < counter; j++) {
       let unique_id = uniqueID();
 
