@@ -3,7 +3,7 @@
  * Calls sqlQuery function from utils and gets data from database
  */
 
-const utils = require('../setup/utils');
+const utils = require("../setup/utils");
 
 module.exports = {
   getCSN: async (req, res) => {
@@ -26,6 +26,7 @@ module.exports = {
       programkod = [programkod];
       counter = 1;
     }
+
     for (var j = 0; j < counter; j++) {
       let unique_id = uniqueID();
 
@@ -184,7 +185,7 @@ module.exports = {
 
         //Laddningslog för debugging
         process.stdout.write(
-          'Loading ' + timer + '/' + person_nummer.length + '\r'
+          "Loading " + timer + "/" + person_nummer.length + "\r"
         );
         timer++;
       }
@@ -222,8 +223,8 @@ module.exports = {
         slapandeTot = person_nummer.length - sum_arr_sorted[0].value;
         noSlapandeTot = sum_arr_sorted[0].value;
       }
-      pie.push({ name: 'Inga släpande', value: noSlapandeTot });
-      pie.push({ name: 'Släpande', value: slapandeTot });
+      pie.push({ name: "Inga släpande", value: noSlapandeTot });
+      pie.push({ name: "Släpande", value: slapandeTot });
 
       total_slapande += slapandeTot;
 
@@ -248,29 +249,28 @@ module.exports = {
     });
   },
 
-    getBetygsfordelning: async (req, res) => {
+  getBetygsfordelning: async (req, res) => {
+    let result2 = {};
+    let result = new Array(req.query.programkod.length);
+    for (let i = 0; i < result.length; ++i) {
+      result[i] = await utils.sqlQuery(
+        "SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD=? GROUP BY UTBILDNING_KOD, BETYGSVARDE",
+        req.query.programkod[i]
+      );
+    }
 
-        let result2 = {}
-        let result = new Array(req.query.programkod.length);
-        for (let i = 0; i < result.length; ++i) {
-            result[i] = await utils.sqlQuery(
-                'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD=? GROUP BY UTBILDNING_KOD, BETYGSVARDE'
-                , req.query.programkod[i]
-            );
-        }
+    for (let kurs in req.query.kurskod) {
+      result2[req.query.kurskod[kurs]] = await utils.sqlQuery(
+        "SELECT COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS name FROM io_studieresultat WHERE UTBILDNING_KOD=? GROUP BY BETYGSVARDE",
+        req.query.kurskod[kurs]
+      );
+    }
 
-        for (let kurs in req.query.kurskod) {
-            result2[req.query.kurskod[kurs]] = await utils.sqlQuery(
-                'SELECT COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS name FROM io_studieresultat WHERE UTBILDNING_KOD=? GROUP BY BETYGSVARDE'
-                , req.query.kurskod[kurs]
-            );
-        }
-        
-        res.status(200).send({
-            programData: result,
-            kursData: result2,
-        });
-    },
+    res.status(200).send({
+      programData: result,
+      kursData: result2,
+    });
+  },
 
   getAvhopp: async (req, res) => {
     let result = [];
@@ -295,7 +295,7 @@ module.exports = {
     }
     for (var i = 0; i < program.length; i++) {
       temp = await utils.sqlQuery(
-        'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
+        "SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC",
         [program[i], start, slut]
       );
 
@@ -348,7 +348,7 @@ module.exports = {
         //Quearyn för att hämta alla snittbetyg för kursens år och termin.
         'SELECT `UTBILDNING_KOD`,CONCAT(`AR`,`TERMIN`) AS PERIOD,((`ANDEL_INNEHALL_5`*5+`ANDEL_INNEHALL_4`*4+`ANDEL_INNEHALL_3`*3+`ANDEL_INNEHALL_2`*2+`ANDEL_INNEHALL_1`)/`ANTAL_SVAR`) AS "SNITT_BETYG" FROM EVALIUATE  WHERE UTBILDNING_KOD' +
           ` = "${kursKoder[i]}"` +
-          ' ORDER BY UTBILDNING_KOD' +
+          " ORDER BY UTBILDNING_KOD" +
           ` DESC`
       );
 
@@ -411,7 +411,7 @@ module.exports = {
     }
 
     result = await utils.sqlQuery(
-      'SELECT DISTINCT(STUDIEPERIOD_STARTDATUM) as start_datum FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ? ORDER BY STUDIEPERIOD_STARTDATUM',
+      "SELECT DISTINCT(STUDIEPERIOD_STARTDATUM) as start_datum FROM IO_REGISTRERING WHERE UTBILDNING_KOD = ? ORDER BY STUDIEPERIOD_STARTDATUM",
       kurskod
     );
 
@@ -609,27 +609,28 @@ module.exports = {
     });
   },
 
-    getOmtenta: async (req, res) => {
+  getOmtenta: async (req, res) => {
+    let kurskod = req.query.kurskod;
+    console.log(kurskod);
+    let result = {};
+    let result2 = {};
+    let result3 = {};
+    for (let i = 0; i < kurskod.length; ++i) {
+      result[kurskod[i]] = await utils.sqlQuery(
+        'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER',
+        kurskod[i]
+      );
 
-        let kurskod = req.query.kurskod
-        console.log(kurskod)
-        let result = {};
-        let result2 = {};
-        let result3 = {};
-        for (let i = 0; i < kurskod.length; ++i) {
-            result[kurskod[i]] = await utils.sqlQuery(
-                'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER', kurskod[i]
-            );
+      result2[kurskod[i]] = await utils.sqlQuery(
+        'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND MODUL_KOD="TEN1"',
+        kurskod[i]
+      );
 
-            result2[kurskod[i]] = await utils.sqlQuery(
-                'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND MODUL_KOD="TEN1"', kurskod[i]
-            );
-
-            result3[kurskod[i]] = await utils.sqlQuery(
-                'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER', kurskod[i]
-            );
-        }
-    
+      result3[kurskod[i]] = await utils.sqlQuery(
+        'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER',
+        kurskod[i]
+      );
+    }
 
     res.status(200).send({
       data: result,
