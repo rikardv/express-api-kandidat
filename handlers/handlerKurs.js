@@ -9,7 +9,6 @@ module.exports = {
   getKursInfo: async (req, res) => {
     let result = [];
     let kurskod = req.query.kurskod;
-    console.log(kurskod);
     let unique_id = Math.floor(Math.random() * Date.now());
     await createTempDB(kurskod, unique_id);
 

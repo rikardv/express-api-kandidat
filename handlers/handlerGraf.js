@@ -37,6 +37,10 @@ module.exports = {
         `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
       );
 
+      let program_namn = await utils.sqlQuery(
+        `SELECT DISTINCT YTTERSTA_KURSPAKETERING_SV FROM TEMP_REG_${unique_id}`
+      );
+
       let limit_procent = 0.625; //62.5% HP krävs för att få CSN.
       let limit = 0; //nytt värde för varje personnummer, används för att jämföra antal HP med CSN-gränsen.
       let HP_tot = []; //för att lagra antalet HP varje person läst.
@@ -121,6 +125,7 @@ module.exports = {
         under: under_limit,
         total: person_nummer.length,
         sort_HP,
+        program_namn: program_namn[0].YTTERSTA_KURSPAKETERING_SV,
       });
     }
     // Check if results have been returned
@@ -161,6 +166,10 @@ module.exports = {
 
       let person_nummer = await utils.sqlQuery(
         `SELECT DISTINCT PERSONNUMMER FROM TEMP_REG_${unique_id}`
+      );
+
+      let program_namn = await utils.sqlQuery(
+        `SELECT DISTINCT YTTERSTA_KURSPAKETERING_SV FROM TEMP_REG_${unique_id}`
       );
 
       total += person_nummer.length;
@@ -234,6 +243,7 @@ module.exports = {
         program: programkod[i],
         data: sum_arr_sorted,
         dataPie: pie,
+        program_namn: program_namn[0].YTTERSTA_KURSPAKETERING_SV,
       });
     }
     // Check if results have been returned
@@ -249,29 +259,28 @@ module.exports = {
     });
   },
 
-    getBetygsfordelning: async (req, res) => {
+  getBetygsfordelning: async (req, res) => {
+    let result2 = {};
+    let result = new Array(req.query.programkod.length);
+    for (let i = 0; i < result.length; ++i) {
+      result[i] = await utils.sqlQuery(
+        'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD=? GROUP BY UTBILDNING_KOD, BETYGSVARDE',
+        req.query.programkod[i]
+      );
+    }
 
-        let result2 = {}
-        let result = new Array(req.query.programkod.length);
-        for (let i = 0; i < result.length; ++i) {
-            result[i] = await utils.sqlQuery(
-                'SELECT UTBILDNING_KOD AS kurskod, COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS betyg FROM io_studieresultat WHERE YTTERSTA_KURSPAKETERING_KOD=? GROUP BY UTBILDNING_KOD, BETYGSVARDE'
-                , req.query.programkod[i]
-            );
-        }
+    for (let kurs in req.query.kurskod) {
+      result2[req.query.kurskod[kurs]] = await utils.sqlQuery(
+        'SELECT COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS name FROM io_studieresultat WHERE UTBILDNING_KOD=? GROUP BY BETYGSVARDE',
+        req.query.kurskod[kurs]
+      );
+    }
 
-        for (let kurs in req.query.kurskod) {
-            result2[req.query.kurskod[kurs]] = await utils.sqlQuery(
-                'SELECT COUNT(BETYGSVARDE) AS value, BETYGSVARDE AS name FROM io_studieresultat WHERE UTBILDNING_KOD=? GROUP BY BETYGSVARDE'
-                , req.query.kurskod[kurs]
-            );
-        }
-        
-        res.status(200).send({
-            programData: result,
-            kursData: result2,
-        });
-    },
+    res.status(200).send({
+      programData: result,
+      kursData: result2,
+    });
+  },
 
   getAvhopp: async (req, res) => {
     let result = [];
@@ -296,7 +305,7 @@ module.exports = {
     }
     for (var i = 0; i < program.length; i++) {
       temp = await utils.sqlQuery(
-        'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD ORDER BY avbrott DESC',
+        'SELECT UTBILDNING_KOD as kurskod, COUNT(AVBROTT_UTBILDNING) as avbrott, YTTERSTA_KURSPAKETERING_SV as namn FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD = ?  AND AVBROTT_UTBILDNING BETWEEN ? AND ? AND AVBROTT_UTBILDNING IS NOT NULL GROUP BY UTBILDNING_KOD,YTTERSTA_KURSPAKETERING_SV ORDER BY avbrott DESC',
         [program[i], start, slut]
       );
 
@@ -307,6 +316,7 @@ module.exports = {
       });
       result.push({
         program: program[i],
+        program_namn: temp[0].namn,
         data: temp,
       });
     }
@@ -610,27 +620,27 @@ module.exports = {
     });
   },
 
-    getOmtenta: async (req, res) => {
+  getOmtenta: async (req, res) => {
+    let kurskod = req.query.kurskod;
+    let result = {};
+    let result2 = {};
+    let result3 = {};
+    for (let i = 0; i < kurskod.length; ++i) {
+      result[kurskod[i]] = await utils.sqlQuery(
+        'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER',
+        kurskod[i]
+      );
 
-        let kurskod = req.query.kurskod
-        console.log(kurskod)
-        let result = {};
-        let result2 = {};
-        let result3 = {};
-        for (let i = 0; i < kurskod.length; ++i) {
-            result[kurskod[i]] = await utils.sqlQuery(
-                'SELECT PERSONNUMMER AS persnr, COUNT(BETYGSVARDE) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER', kurskod[i]
-            );
+      result2[kurskod[i]] = await utils.sqlQuery(
+        'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND MODUL_KOD="TEN1"',
+        kurskod[i]
+      );
 
-            result2[kurskod[i]] = await utils.sqlQuery(
-                'SELECT COUNT(DISTINCT(PERSONNUMMER)) AS value FROM io_studieresultat WHERE UTBILDNING_KOD=? AND MODUL_KOD="TEN1"', kurskod[i]
-            );
-
-            result3[kurskod[i]] = await utils.sqlQuery(
-                'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER', kurskod[i]
-            );
-        }
-    
+      result3[kurskod[i]] = await utils.sqlQuery(
+        'SELECT PERSONNUMMER AS persnr FROM io_studieresultat WHERE UTBILDNING_KOD=? AND BETYGGRAD_EN!="Fail" AND MODUL_KOD="TEN1" GROUP BY PERSONNUMMER',
+        kurskod[i]
+      );
+    }
 
     res.status(200).send({
       data: result,
@@ -657,7 +667,7 @@ let createTempDB = async (programkod, start_datum, unique_id) => {
   //Skapa en temporär databas som innehåller registrering:
   //alla personnummer som registerats på en kurs och HP för kursen samt antalet som gjort avbrott på programmet.
   let create_reg = await utils.sqlQuery(
-    `CREATE TEMPORARY TABLE TEMP_REG_${unique_id} AS SELECT UTBILDNING_KOD,PERSONNUMMER, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL `,
+    `CREATE TEMPORARY TABLE TEMP_REG_${unique_id} AS SELECT YTTERSTA_KURSPAKETERING_SV,UTBILDNING_KOD,PERSONNUMMER, OMFATTNINGVARDE FROM IO_REGISTRERING WHERE YTTERSTA_KURSPAKETERING_KOD=? AND YTTERSTA_KURSPAKETERINGSTILLFALLE_STARTDATUM=? AND STUDIEPERIOD_STARTDATUM >= ? AND STUDIEPERIOD_SLUTDATUM <= "2022-02-23" AND AVBROTT_YTTERSTAKURSPAKETERING IS NULL `,
     [programkod, start_datum, start_datum]
   );
   //Skapa en temporär databas som innehåller resultat:
@@ -703,3 +713,7 @@ let createTempDBdagar2 = async (kurskod, unique_id) => {
 function uniqueID() {
   return Math.floor(Math.random() * Date.now());
 }
+
+let getNameFromProgram = async (programkod) => {
+  let result = await utils.sqlQuery(`SELECT DISTINCT(YTTERSTA_)`, programkod);
+};
